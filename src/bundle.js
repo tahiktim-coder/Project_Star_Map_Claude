@@ -28,6 +28,81 @@ const PLANET_DATA = {
     VITAL: { scanCost: 2, hazardChance: 0.1, desc: "Rare biosphere. Detecting life signs." }
 };
 
+const ITEMS = {
+    // Biological
+    RADIOTROPHIC_FUNGUS: {
+        id: 'fungus', name: 'Radiotrophic Fungus', type: 'CONSUMABLE', value: 15,
+        desc: 'Converts radiation to chemical energy.',
+        onUse: (state) => { state.energy = Math.min(100, state.energy + 15); return "Energy restored by 15."; }
+    },
+    AMBER_SPECIMEN: { id: 'amber', name: 'Amber Specimen', type: 'ARTIFACT', value: 50, desc: 'Preserved biological sample from ancient era.' },
+    // Rocky/Barren
+    GEODE_SAMPLE: { id: 'geode', name: 'Geode Sample', type: 'RESOURCE', value: 40, desc: 'Crystalline formation rich in rare earth metals.' },
+    OBSIDIAN_MONOLITH: { id: 'monolith', name: 'Obsidian Monolith', type: 'ARTIFACT', value: 75, desc: 'Strange geometric stone carving.' },
+    // Ruins/Tech
+    SCRAP_PLATING: {
+        id: 'scrap', name: 'Scrap Plating', type: 'RESOURCE', value: 10,
+        desc: 'Salvageable alloy plating.',
+        onUse: (state) => { state.probeIntegrity = Math.min(100, state.probeIntegrity + 20); return "Probe repaired (+20%)."; }
+    },
+    TECH_FRAGMENT: { id: 'tech_frag', name: 'Tech Fragment', type: 'LORE', value: 100, desc: 'Data storage device from a lost civilization.' },
+
+    // Condensed Resources (Found via Probe 5%)
+    CONDENSED_METALS: {
+        id: 'condensed_metals', name: 'Condensed Metals', type: 'RESOURCE_PACK', value: 50,
+        desc: 'Highly compressed refined ores.',
+        onUse: (state) => { state.metals += 50; return "Processed +50 Metals."; }
+    },
+    IONIZED_BATTERY: {
+        id: 'ion_battery', name: 'Ionized Battery', type: 'RESOURCE_PACK', value: 30,
+        desc: 'Unstable high-capacity energy cell.',
+        onUse: (state) => { state.energy = Math.min(100, state.energy + 30); return "Drained +30 Energy."; }
+    }
+};
+
+const EVENTS = [
+    {
+        id: 'DERELICT',
+        trigger: (planet) => planet.tags && (planet.tags.includes('ANCIENT_RUINS') || planet.tags.includes('ALIEN_SIGNALS')),
+        title: "DERELICT SIGNAL",
+        desc: "The EVA team has located the source of the signal: A crashed vessel of unknown origin. Hull breach imminent.",
+        choices: [
+            { text: "Salvage Exterior (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Breach Hull (Risky)", riskMod: 30, reward: { type: 'ITEM', tags: ['TECH'] } }
+        ]
+    },
+    {
+        id: 'BIO_HORROR',
+        trigger: (planet) => planet.type === 'VITAL' || (planet.tags && planet.tags.includes('VITAL_FLORA')),
+        title: "BIOLOGICAL ANOMALY",
+        desc: "The detected lifeform is immense... and it's moving towards the landing team.",
+        choices: [
+            { text: "Defensive Sample (Safe)", riskMod: 10, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Capture Specimen (Very Risky)", riskMod: 50, reward: { type: 'ITEM', tags: ['BIO'] } }
+        ]
+    },
+    {
+        id: 'MINERAL_VEIN',
+        trigger: (planet) => ['ROCKY', 'DESERT', 'VOLCANIC'].includes(planet.type),
+        title: "RICH VEIN DETECTED",
+        desc: "Sensors indicate a high-density mineral pocket in a precarious canyon ridge.",
+        choices: [
+            { text: "Surface Extraction (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Deep Core Drill (Risky)", riskMod: 25, reward: { type: 'ITEM', tags: ['GEO'] } }
+        ]
+    },
+    {
+        id: 'DISTRESS_BEACON', // Fallback
+        trigger: () => true,
+        title: "DISTRESS BEACON",
+        desc: "A faint repeating signal is coming from a debris field.",
+        choices: [
+            { text: "Scan & Leave (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Investigate Debris (Risky)", riskMod: 20, reward: { type: 'RESOURCE', val: 'METALS_HIGH' } }
+        ]
+    }
+];
+
 const SUFFIXES = ['Prime', 'Major', 'Minor', 'IV', 'X', 'Alpha', 'Proxima', 'Secundus'];
 const NAMES = ['Helios', 'Kryos', 'Titan', 'Aea', 'Zephyr', 'Chronos', 'Nyx', 'Erebus', 'Tartarus', 'Atlas', 'Hyperion', 'Phoebe'];
 
@@ -361,7 +436,7 @@ class OrbitView {
 
         this.element.innerHTML = `
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column;">
-                <h2 style="color: var(--color-primary); border-bottom: 2px solid var(--color-primary); padding-bottom: 10px; margin-bottom: 20px; max-width: 55%;">
+                <h2 style="color: var(--color-primary); border-bottom: 2px solid var(--color-primary); padding-bottom: 10px; margin-bottom: 20px; max-width: 40%;">
                     /// ORBIT ESTABLISHED: ${planet.name}
                 </h2>
 
@@ -461,16 +536,28 @@ class OrbitView {
                     <div>${planet.scanned ? 'SYSTEM SCANNED' : 'DEEP SCAN'}</div>
                     <div class="cost">${planet.scanned ? 'ANALYSIS COMPLETE' : '-2 ENERGY'}</div>
                 </button>
-                <button class="cmd-btn" id="btn-probe" ${this.state.probeIntegrity <= 0 ? 'disabled' : ''}>
-                    <div>LAUNCH PROBE</div><div class="cost">INTEGRITY RISK</div>
+                
+                ${this.state.probeIntegrity > 0
+                ? `<button class="cmd-btn" id="btn-probe" ${this.state.probeIntegrity <= 0 ? 'disabled' : ''}>
+                         <div>LAUNCH PROBE</div><div class="cost">Integrity: ${this.state.probeIntegrity.toFixed(0)}%</div>
+                       </button>`
+                : `<button class="cmd-btn danger" id="btn-probe" ${this.state.metals < 50 ? 'disabled' : ''}>
+                         <div>FABRICATE PROBE</div><div class="cost">-50 METALS</div>
+                       </button>`
+            }
+
+                 <button class="cmd-btn" id="btn-eva" ${this.state.energy < 5 || planet.hasEva ? 'disabled' : ''}>
+                    <div>${planet.hasEva ? 'MISSION COMPLETE' : 'DEPLOY EVA TEAM'}</div>
+                    <div class="cost">${planet.hasEva ? 'LOGS ARCHIVED' : '-5 ENERGY / RISK'}</div>
                 </button>
-                 <button class="cmd-btn" id="btn-eva" ${this.state.energy < 5 ? 'disabled' : ''}>
-                    <div>DEPLOY EVA TEAM</div><div class="cost">-5 ENERGY / RISK</div>
-                </button>
-                <div style="flex: 1; border: 1px solid var(--color-primary-dim); background: rgba(0,0,0,0.3); padding: 10px; font-size: 0.8em; color: var(--color-text-dim);">
-                    STATUS: ORBITAL LOCK STABLE.<br>AWAITING ORDERS.
+
+                <div style="margin-top: 20px; border-top: 1px dashed var(--color-primary-dim); padding-top: 20px;">
+                    <button class="cmd-btn" id="btn-colony" style="border-color: #00ff00; color: #00ff00;">
+                        <div>ESTABLISH COLONY</div><div class="cost">INITIATE STASIS</div>
+                    </button>
                 </div>
-                <button class="cmd-btn danger" id="btn-leave">
+
+                <button class="cmd-btn danger" id="btn-leave" style="margin-top: auto;">
                     <div>BREAK ORBIT</div><div class="cost">RETURN TO MAP</div>
                 </button>
              </div>
@@ -490,13 +577,106 @@ class OrbitView {
 
         rightPanel.querySelector('#btn-scan').addEventListener('click', () => this.handleScan());
         rightPanel.querySelector('#btn-probe').addEventListener('click', () => this.handleProbe());
-        rightPanel.querySelector('#btn-eva').addEventListener('click', () => this.handleEVA());
-        rightPanel.querySelector('#btn-leave').addEventListener('click', () => window.dispatchEvent(new Event('req-break-orbit')));
+        const btnEva = rightPanel.querySelector('#btn-eva');
+        if (btnEva) btnEva.addEventListener('click', () => this.handleEVA());
+
+        const btnColony = rightPanel.querySelector('#btn-colony');
+        if (btnColony) btnColony.addEventListener('click', () => this.handleColonyAction());
+
+        const btnLeave = rightPanel.querySelector('#btn-leave');
+        if (btnLeave) btnLeave.addEventListener('click', () => {
+            this.state.addLog("Leaving orbit...");
+            this.renderNav();
+        });
     }
 
     handleScan() { window.dispatchEvent(new CustomEvent('req-action-scan')); }
     handleProbe() { window.dispatchEvent(new CustomEvent('req-action-probe')); }
     handleEVA() { window.dispatchEvent(new CustomEvent('req-action-eva')); }
+
+    handleColonyAction() {
+        // Generate Outcome based on Planet Metrics
+        const planet = this.state.currentSystem;
+        const outcome = this.getColonyOutcome(planet);
+
+        // Color code valid vs failed colonies
+        const color = outcome.success ? '#00ff00' : '#ff4444';
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.background = '#000';
+        overlay.style.color = color;
+        overlay.style.zIndex = '10000';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.textAlign = 'center';
+
+        overlay.innerHTML = `
+            <h1 style="font-size: 3em; border-bottom: 2px solid ${color}; padding-bottom: 20px; margin-bottom: 40px;">/// SIMULATION CONCLUDED ///</h1>
+            
+            <div style="font-size: 1.2em; max-width: 800px; line-height: 1.6; text-align: left; background: rgba(20,20,20,0.8); padding: 40px; border: 1px solid ${color};">
+                <div style="margin-bottom: 20px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 10px;">
+                    TARGET: ${planet.name} <br>
+                    TYPE: ${planet.type}
+                </div>
+                
+                <p>${outcome.text}</p>
+                
+                <div style="margin-top: 30px; font-style: italic; color: #fff; font-weight: bold;">
+                    RESULT: ${outcome.title}
+                </div>
+            </div>
+
+            <button onclick="location.reload()" style="margin-top: 60px; padding: 20px 40px; background: transparent; border: 2px solid ${color}; color: ${color}; font-size: 1.2em; cursor: pointer; font-family: 'Courier New', monospace;">
+                REBOOT SIMULATION
+            </button>
+        `;
+
+        document.body.appendChild(overlay);
+    }
+
+    getColonyOutcome(planet) {
+        // Default Logic Placeholders
+        let success = false;
+        let title = "COLONY LOST";
+        let text = "";
+
+        // Raw Logic based on Type
+        if (planet.type === 'VITAL') {
+            success = true;
+            title = "NEW EDEN";
+            text = "The Colony flourished. The atmosphere was perfectly compatible with human physiology. Within three generations, the population swelled to millions. The EXODUS-1 became a museum in the center of the capital city.";
+        } else if (planet.type === 'TOXIC' || planet.type === 'VOLCANIC') {
+            success = false;
+            title = "TOTAL EXTINCTION";
+            text = "The atmospheric processors failed within 6 months due to corrosive storms. The colony domes were breached shortly after. The distress beacon was picked up by Earth 50 years later, but only ruins remained.";
+        } else if (planet.type === 'GAS_GIANT') {
+            success = false;
+            title = "GRAVITATIONAL CRUSH";
+            text = "The floating platform concept was sound in theory, but the storms of ${planet.name} were relentless. The colony station was eventually sheared apart by wind shear and plummeted into the crushing depths.";
+        } else if (planet.type === 'OCEANIC') {
+            success = true;
+            title = "AQUATIC EVOLUTION";
+            text = "Land was scarce, so we built beneath the waves. Technologies adapted from the ship allowed us to harvest the geothermal vents. Over centuries, the colonists adapted using gene-mods. We are no longer Earth-human, but we are alive.";
+        } else if (planet.type === 'ICE_WORLD') {
+            success = true;
+            title = "THE LONG SLEEP";
+            text = "Just barely surviving. The colony lives entirely underground, harnessing the planet's core for heat. Life is hard, bleak, and mostly spent in virtual reality simulations to escape the frozen reality above.";
+        } else {
+            // Generic Fail
+            success = false;
+            title = "SLOW DECLINE";
+            text = "The resources were there, but the biosphere was incompatible. Strange bacteria plagued the crops. The colony survived for 80 years before the last generator failed. We simply faded away.";
+        }
+
+        return { success, title, text };
+    }
 }
 
 // --- 4. MAIN APP ---
@@ -514,7 +694,7 @@ class App {
         console.log("Exodus-1 Systems Initializing...");
 
         window.addEventListener('log-updated', (e) => this.handleLogUpdate(e));
-        window.addEventListener('log-updated', (e) => this.handleLogUpdate(e));
+
         window.addEventListener('hud-updated', () => this.updateHud());
 
         // Header Interactions
@@ -597,13 +777,233 @@ class App {
     }
 
     handleProbeAction() {
-        this.state.addLog("Probe launched... (Functionality Pending)");
+        // 1. Fabricate if destroyed
+        if (this.state.probeIntegrity <= 0) {
+            if (this.state.metals >= 50) {
+                this.state.metals -= 50;
+                this.state.probeIntegrity = 100;
+                this.state.addLog("Probe Fabricated. Systems Operational.");
+                this.state.emitUpdates();
+                this.renderOrbit(); // Refresh UI to show Launch button
+            } else {
+                this.state.addLog("Insufficient Metals to fabricate Probe.");
+            }
+            return;
+        }
+
+        // 2. Launch Sequence
+        const planet = this.state.currentSystem;
+        this.state.addLog(`Probe launched to ${planet.name} surface...`);
+
+        // Damage Calc - HIGH RISK
+        const baseDmg = 15 + Math.random() * 15; // 15-30% base damage
+        const hazardMod = (planet.dangerLevel || 0) * 8; // Severe hazard penalty
+        const rng = Math.random() * 5;
+        const totalDmg = baseDmg + hazardMod + rng;
+
+        this.state.probeIntegrity = Math.max(0, this.state.probeIntegrity - totalDmg);
+
+        // Loot Resolution - HARDER YIELDS
+        const roll = Math.random() * 100;
+        let outcome = "NOTHING";
+        let message = "Probe returned with minimal data.";
+
+        if (roll < 20) {
+            // METALS (20% Chance)
+            let amount = Math.floor(10 + Math.random() * 20); // 10-30 yield
+            if (['ROCKY', 'DESERT'].includes(planet.type)) amount = Math.floor(amount * 1.5);
+            this.state.metals += amount;
+            outcome = "METALS";
+            message = `Probe extracted ${amount} Metals.`;
+        } else if (roll < 35) {
+            // ENERGY (15% Chance)
+            let amount = Math.floor(5 + Math.random() * 15); // 5-20 yield
+            if (['GAS_GIANT', 'VOLCANIC'].includes(planet.type)) amount = Math.floor(amount * 1.5);
+            this.state.energy = Math.min(100, this.state.energy + amount);
+            outcome = "ENERGY";
+            message = `Probe siphoned ${amount} Energy units.`;
+        } else if (roll < 45) {
+            // ITEM (10% Chance)
+            const item = this.getProbeItem(planet);
+            if (item) {
+                this.state.cargo.push(item);
+                outcome = "ITEM";
+                message = `Probe retrieved artifact: ${item.name}.`;
+            }
+        } else if (roll < 50) {
+            // CONDENSED RESOURCE (5% Chance)
+            const resItem = (Math.random() > 0.5) ? ITEMS.CONDENSED_METALS : ITEMS.IONIZED_BATTERY;
+            this.state.cargo.push(resItem);
+            outcome = "RESOURCE_PACK";
+            message = `Probe salvaged: ${resItem.name}.`;
+        }
+
+        // Integrity Check
+        if (this.state.probeIntegrity <= 0) {
+            this.state.addLog(`CRITICAL: Probe destroyed by atmospheric stress. Telemetry: ${message}`);
+        } else {
+            this.state.addLog(`Probe returned. Integrity at ${this.state.probeIntegrity.toFixed(0)}%. Result: ${message}`);
+        }
+
+        this.state.emitUpdates();
+        this.renderOrbit();
+    }
+
+    getProbeItem(planet) {
+        let pool = [];
+
+        // Logic for pool selection
+        if (planet.type === 'VITAL' || (planet.tags && planet.tags.includes('VITAL_FLORA'))) {
+            pool.push(ITEMS.RADIOTROPHIC_FUNGUS, ITEMS.AMBER_SPECIMEN);
+        }
+        if (['ROCKY', 'DESERT', 'VOLCANIC'].includes(planet.type)) {
+            pool.push(ITEMS.GEODE_SAMPLE, ITEMS.OBSIDIAN_MONOLITH);
+        }
+        if (planet.tags && (planet.tags.includes('ANCIENT_RUINS') || planet.tags.includes('ALIEN_SIGNALS'))) {
+            pool.push(ITEMS.SCRAP_PLATING, ITEMS.TECH_FRAGMENT);
+        }
+
+        // Fallback if no specific pool match or pool empty
+        if (pool.length === 0) pool = Object.values(ITEMS);
+
+        // Return random item from pool
+        const template = pool[Math.floor(Math.random() * pool.length)];
+        return { ...template, acquiredAt: planet.name };
     }
 
     handleEvaAction() {
-        if (this.state.consumeEnergy(5)) {
-            this.state.addLog("EVA Team deployed... (Functionality Pending)");
+        const healthyCrew = this.state.crew.filter(c => c.status === 'HEALTHY');
+
+        // 1. Check Requirements
+        if (healthyCrew.length < 2) {
+            this.state.addLog("MISSION ABORTED: Minimum 2 Healthy Crew required for EVA.");
+            return;
         }
+
+        if (this.state.consumeEnergy(5)) {
+            const planet = this.state.currentSystem;
+
+            // 2. Select Event
+            // Prioritize specific events, fallback to generic
+            let potentialEvents = EVENTS.filter(e => e.trigger(planet));
+            if (potentialEvents.length === 0) potentialEvents = [EVENTS[EVENTS.length - 1]]; // Should not happen due to fallback, but safe
+
+            // Bias towards first matches (more specific)
+            const selectedEvent = potentialEvents[0];
+
+            this.showEventModal(selectedEvent, planet);
+            planet.hasEva = true; // Mark as done
+            this.renderOrbit(); // Refresh to disable button
+        }
+    }
+
+    showEventModal(event, planet) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2000';
+
+        const riskBase = (planet.dangerLevel || 0) * 5 + 5; // Base risk 5% to 30%
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: var(--color-accent);">
+                <div class="modal-header" style="color: var(--color-accent);">/// EVA MISSION: ${event.title} ///</div>
+                <div style="padding: 20px; text-align: center;">
+                    <p style="margin-bottom: 20px; font-style: italic;">"${event.desc}"</p>
+                    
+                    <div style="display: flex; gap: 20px; justify-content: center;">
+                        ${event.choices.map((choice, idx) => {
+            const totalRisk = riskBase + choice.riskMod;
+            let riskLabel = "UNKNOWN";
+            let riskColor = "var(--color-text-dim)";
+
+            if (totalRisk < 10) { riskLabel = "NEGLIGIBLE"; riskColor = "var(--color-primary)"; }
+            else if (totalRisk < 30) { riskLabel = "MODERATE"; riskColor = "#FFFF00"; }
+            else if (totalRisk < 60) { riskLabel = "HIGH"; riskColor = "#FFA500"; }
+            else { riskLabel = "EXTREME"; riskColor = "#FF0000"; }
+
+            return `
+                            <button class="choice-btn" data-idx="${idx}" style="
+                                padding: 15px; 
+                                border: 1px solid var(--color-primary); 
+                                background: rgba(0,0,0,0.8); 
+                                color: var(--color-primary); 
+                                cursor: pointer; 
+                                flex: 1;
+                                font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div>${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 5px; color: ${riskColor}">RISK ASSESSMENT: ${riskLabel}</div>
+                            </button>
+                        `}).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('.choice-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const choice = event.choices[btn.dataset.idx];
+                this.resolveEvaOutcome(choice, riskBase);
+                modal.remove();
+            });
+        });
+
+        // Hover effects
+        modal.querySelectorAll('.choice-btn').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'var(--color-primary)'; btn.style.color = '#000'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(0,0,0,0.8)'; btn.style.color = 'var(--color-primary)'; };
+        });
+    }
+
+    resolveEvaOutcome(choice, baseRisk) {
+        const totalRisk = baseRisk + choice.riskMod;
+        const roll = Math.random() * 100;
+        let logMsg = "";
+
+        // 1. Hazard Check
+        if (roll < totalRisk) {
+            // INJURY or DEATH
+            const severity = Math.random() * 100;
+            const targetCrew = this.state.crew.filter(c => c.status === 'HEALTHY')[0]; // Pick first available
+
+            if (severity < 10 || totalRisk > 40) { // 10% chance of death on hit, or if risk was super high
+                targetCrew.status = 'DEAD';
+                logMsg = `CATASTROPHE: ${targetCrew.name} KIA during operation. `;
+            } else {
+                targetCrew.status = 'INJURED';
+                logMsg = `INCIDENT: ${targetCrew.name} sustained heavy injuries. `;
+            }
+        } else {
+            logMsg = "Operations Successful. Team returned safely. ";
+        }
+
+        // 2. Reward
+        // Even on injury, you usually get the loot (unless dead? lets be generous for now)
+        if (choice.reward.type === 'RESOURCE') {
+            let amount = 0;
+            if (choice.reward.val === 'METALS') amount = 40 + Math.floor(Math.random() * 40);
+            else if (choice.reward.val === 'METALS_HIGH') amount = 60 + Math.floor(Math.random() * 60);
+            else amount = 30 + Math.floor(Math.random() * 20); // Energy
+
+            if (choice.reward.val.includes('METALS')) {
+                this.state.metals += amount;
+                logMsg += `Recovered ${amount} Metals.`;
+            } else {
+                this.state.energy = Math.min(100, this.state.energy + amount);
+                logMsg += `Siphoned ${amount} Energy.`;
+            }
+        } else if (choice.reward.type === 'ITEM') {
+            // Pick a random item
+            const item = this.getProbeItem(this.state.currentSystem); // Reuse pool logic for now
+            this.state.cargo.push(item);
+            logMsg += `Secured Artifact: ${item.name}.`;
+        }
+
+        this.state.addLog(logMsg);
+        this.state.emitUpdates();
     }
 
     handleLogUpdate(e) {
@@ -624,7 +1024,8 @@ class App {
     updateHud() {
         document.getElementById('res-energy').textContent = `${this.state.energy}%`;
         document.getElementById('res-oxygen').textContent = `${this.state.oxygen}%`;
-        document.getElementById('res-probe').textContent = `${this.state.probeIntegrity}%`;
+        document.getElementById('res-metals').textContent = `${this.state.metals}`;
+        document.getElementById('res-probe').textContent = `${this.state.probeIntegrity.toFixed(0)}%`;
         const crewCount = this.state.crew.filter(c => c.status !== 'DEAD').length;
         document.getElementById('res-crew').textContent = `${crewCount}/${this.state.crew.length}`;
         document.getElementById('game-date').textContent = `DATE: 2342.05.${12 + this.state.currentSector}`;
@@ -680,10 +1081,14 @@ class App {
                 <div class="inventory-grid">
                     ${this.state.cargo.length === 0
                 ? '<div style="grid-column: 1/-1; text-align: center; color: var(--color-text-dim); padding: 50px;">CARGO HOLD EMPTY</div>'
-                : this.state.cargo.map(item => `
-                            <div class="inv-item">
-                                <div class="item-name">${item.name}</div>
-                                <div class="item-qty">x${item.qty || 1}</div>
+                : this.state.cargo.map((item, idx) => `
+                            <div class="inv-item" style="display: flex; flex-direction: column; gap: 5px;">
+                                <div class="item-name" style="font-weight: bold;">${item.name}</div>
+                                <div class="item-desc" style="font-size: 0.7em; color: #888; font-style: italic;">${item.desc}</div>
+                                <div style="margin-top: auto; display: flex; gap: 5px;">
+                                    ${item.onUse ? `<button class="action-btn" data-idx="${idx}" style="font-size: 0.7em; padding: 2px 5px; cursor: pointer; background: var(--color-primary); border: none; font-weight: bold;">USE</button>` : ''}
+                                    <div class="item-type" style="font-size: 0.7em; opacity: 0.5; margin-left: auto;">${item.type}</div>
+                                </div>
                             </div>
                         `).join('')}
                 </div>
@@ -693,8 +1098,29 @@ class App {
             </div>
         `;
         document.body.appendChild(modal);
+
+        // Use Handlers
+        modal.querySelectorAll('.action-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                this.handleItemUse(idx);
+                modal.remove(); // Close to refresh/prevent double click
+                this.showCargoInventory(); // Re-open updated
+            };
+        });
+
         modal.querySelector('.close-modal').onclick = () => modal.remove();
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
+
+    handleItemUse(index) {
+        const item = this.state.cargo[index];
+        if (item && item.onUse) {
+            const msg = item.onUse(this.state);
+            this.state.cargo.splice(index, 1); // Remove from inventory
+            this.state.addLog(`Used ${item.name}: ${msg}`);
+            this.state.emitUpdates();
+        }
     }
 
     renderNav() {
