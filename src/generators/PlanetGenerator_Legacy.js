@@ -99,11 +99,6 @@ class PlanetGenerator {
                 hasLife: type === 'VITAL' || (conditions.tags && conditions.tags.includes('VITAL_FLORA')),
                 hasTech: conditions.tags && (conditions.tags.includes('ALIEN_SIGNALS') || conditions.tags.includes('ANCIENT_RUINS'))
             },
-            // Map Data
-            mapData: {
-                x: Math.floor(Math.random() * 80) + 10, // 10% - 90%
-                y: Math.floor(Math.random() * 80) + 10
-            },
             // Gameplay
             fuelCost: 10 + Math.floor(Math.random() * 10),
             dangerLevel: Math.floor(Math.random() * level) + (PLANET_DATA[type].hazardChance > 0.6 ? 1 : 0),

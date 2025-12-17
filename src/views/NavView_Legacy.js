@@ -2,8 +2,6 @@ class NavView {
     constructor(state) {
         this.element = document.createElement('div');
         this.element.className = 'nav-view-container';
-        this.element.style.height = '100%';
-        this.element.style.width = '100%';
         this.state = state;
     }
 
@@ -13,43 +11,25 @@ class NavView {
             return this.element;
         }
 
-        const nodesHtml = systems.map(planet => {
-            // Safety fallback if mapData missing
-            const x = planet.mapData ? planet.mapData.x : Math.floor(Math.random() * 80) + 10;
-            const y = planet.mapData ? planet.mapData.y : Math.floor(Math.random() * 80) + 10;
-
-            // Type Colors
-            let color = '#aaaaaa'; // Default Grey
-
-            // Standard Types
-            if (planet.type === 'ROCKY') color = '#b0b0b0';    // Light Grey
-            if (planet.type === 'GAS_GIANT') color = '#ffcc00';// Orange/Gold
-            if (planet.type === 'ICE_WORLD') color = '#00ffff';// Cyan
-            if (planet.type === 'OCEANIC') color = '#0066ff';  // Deep Blue
-            if (planet.type === 'DESERT') color = '#ff9933';   // Sandy Orange
-            if (planet.type === 'VOLCANIC') color = '#ff3300'; // Bright Red
-            if (planet.type === 'TOXIC') color = '#99cc33';    // Sickly Green
-            if (planet.type === 'VITAL') color = '#33ff33';    // Bright Green (Life)
-
-            return `
-            <div class="nav-node" data-id="${planet.id}" 
-                 style="position: absolute; left: ${x}%; top: ${y}%; transform: translate(-50%, -50%);
-                        width: 20px; height: 20px; background: #000; border: 2px solid ${color}; 
-                        border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-                        z-index: 10; box-shadow: 0 0 5px ${color}; transition: all 0.3s ease;">
-                
-                <div style="width: 6px; height: 6px; background: ${color}; border-radius: 50%;"></div>
-                
-                <!-- Label -->
-                <div style="position: absolute; top: 25px; white-space: nowrap; color: ${color}; 
-                            font-size: 10px; font-family: var(--font-mono); text-shadow: 0 0 5px #000; pointer-events: none;">
-                    ${planet.name}
+        const gridContent = systems.map(planet => `
+            <div class="nav-node" data-id="${planet.id}" style="border: 1px solid var(--color-primary-dim); padding: 15px; cursor: pointer; transition: all 0.2s; background: rgba(0,255,0,0.05); position: relative;">
+                <div style="font-size: 10px; color: var(--color-primary-dim); margin-bottom: 5px;">COORDS: [${Math.floor(Math.random() * 999)}:${Math.floor(Math.random() * 999)}]</div>
+                <h3 style="color: var(--color-primary); margin-bottom: 5px; font-family: var(--font-display);">${planet.name}</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <span style="color: var(--color-text-dim); font-size: 0.9em;">TYPE: ${planet.type}</span>
+                    <!-- Level Hidden as requested -->
                 </div>
-            </div>`;
-        }).join('');
+                
+                <div class="card-actions" style="margin-top: 15px; border-top: 1px dashed var(--color-primary-dim); padding-top: 10px;">
+                    <div style="font-size: 0.8em; color: var(--color-primary);">WARP COST: ${planet.fuelCost} ENERGY</div>
+                </div>
+
+                ${planet.scanned ? '<div style="position: absolute; top:0; right:0; background: var(--color-primary); color: #000; padding: 2px 5px; font-size: 10px;">SCANNED</div>' : ''}
+            </div>
+        `).join('');
 
         this.element.innerHTML = `
-            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column;">
+            <div style="padding: 20px; height: 100%;">
                 <div style="display: flex; justify-content: space-between; align-items: end; border-bottom: 2px solid var(--color-primary); padding-bottom: 10px; margin-bottom: 20px;">
                     <h2 style="color: var(--color-primary); margin:0;">/// SECTOR NAVIGATION MAP</h2>
                     <button id="jump-sector-btn" style="background: transparent; border: 1px solid var(--color-accent); color: var(--color-accent); padding: 5px 15px; cursor: pointer; font-family: var(--font-mono);">
@@ -57,10 +37,8 @@ class NavView {
                     </button>
                 </div>
                 
-                <div class="sector-map-container sector-map-bg" style="flex: 1; border: 1px solid var(--color-primary-dim); position: relative; overflow: hidden;">
-                    ${nodesHtml}
-                    <!-- Scanner Bar Animation -->
-                    <div class="scanner-bar" style="position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: linear-gradient(to bottom, transparent, var(--color-primary), transparent); opacity: 0.5; box-shadow: 0 0 10px var(--color-primary); animation: scan 8s linear infinite; pointer-events: none; z-index: 5;"></div>
+                <div class="sector-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; overflow-y: auto; max-height: 80vh;">
+                    ${gridContent}
                 </div>
             </div>
         `;
@@ -82,19 +60,12 @@ class NavView {
             const data = systems.find(p => p.id === id);
 
             node.addEventListener('mouseenter', () => {
-                node.style.boxShadow = '0 0 15px var(--color-primary)';
-                node.style.borderColor = '#fff';
-                node.style.zIndex = '20';
+                node.style.boxShadow = '0 0 15px var(--color-primary-dim)';
+                node.style.borderColor = 'var(--color-primary)';
             });
             node.addEventListener('mouseleave', () => {
-                node.style.boxShadow = `0 0 5px ${node.style.borderColor}`; // Revert visual logic (simplified)
-                // Actually need to reset to original color. 
-                // Since inline style is modified, best is to just remove the overrides or let the original render handle it.
-                // For simplicity here, we'll re-render or just clear the specific overrides:
-                const color = this.getPlanetColor(data.type);
-                node.style.borderColor = color;
-                node.style.boxShadow = `0 0 5px ${color}`;
-                node.style.zIndex = '10';
+                node.style.boxShadow = 'none';
+                node.style.borderColor = 'var(--color-primary-dim)';
             });
 
             node.addEventListener('click', () => {
@@ -103,34 +74,28 @@ class NavView {
         });
     }
 
-    getPlanetColor(type) {
-        if (type === 'ROCKY') return '#b0b0b0';
-        if (type === 'GAS_GIANT') return '#ffcc00';
-        if (type === 'ICE_WORLD') return '#00ffff';
-        if (type === 'OCEANIC') return '#0066ff';
-        if (type === 'DESERT') return '#ff9933';
-        if (type === 'VOLCANIC') return '#ff3300';
-        if (type === 'TOXIC') return '#99cc33';
-        if (type === 'VITAL') return '#33ff33';
-        return '#aaaaaa';
-    }
-
     handlePlanetSelect(planet) {
         window.dispatchEvent(new CustomEvent('planet-selected', { detail: planet }));
+
         const panel = document.getElementById('tactical-display');
         if (!panel) return;
 
-        // Reuse the logic from the Legacy/Card view for the details panel
         // Hidden Stats Logic
         const isDeepScanned = planet.scanned;
         const isRemoteScanned = planet.remoteScanned;
+
+        // Helper to check if stat should be shown
         const showStat = (key) => isDeepScanned || (isRemoteScanned && planet.revealedStats && planet.revealedStats.includes(key));
+
         const tagsHtml = isDeepScanned && planet.tags && planet.tags.length > 0
             ? planet.tags.map(t => `<span style="background: var(--color-primary-dim); color: #000; padding: 2px 4px; border-radius: 2px; font-size: 0.8em; margin-right: 5px;">${t}</span>`).join('')
             : (isDeepScanned ? '<span style="color: var(--color-text-dim);">NO ANOMALIES DETECTED</span>' : '<span style="color: var(--color-text-dim);">UNKNOWN</span>');
+
         const gravDisplay = showStat('gravity') ? planet.gravity : '<span style="color:var(--color-accent)">UNKNOWN</span>';
         const tempDisplay = showStat('temperature') ? planet.temperature : '<span style="color:var(--color-accent)">UNKNOWN</span>';
         const atmoDisplay = showStat('atmosphere') ? planet.atmosphere : '<span style="color:var(--color-accent)">UNKNOWN</span>';
+
+        // Calculate actual warp cost (0 if returning to last visited)
         const actualCost = (this.state.lastVisitedSystem && this.state.lastVisitedSystem.id === planet.id) ? 0 : planet.fuelCost;
 
         panel.innerHTML = `
@@ -139,7 +104,9 @@ class NavView {
                     <div style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--color-primary); box-shadow: 0 0 20px var(--color-primary-dim); background: radial-gradient(circle at 30% 30%, var(--color-primary-dim), #000);"></div>
                     <div style="position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; pointer-events: none;"></div>
                 </div>
+                
                 <h3 style="color: var(--color-primary); border-bottom: 1px solid var(--color-primary-dim); padding-bottom: 5px;">${planet.name}</h3>
+                
                 <div style="margin-top: 15px; font-size: 0.9em; flex: 1; display: flex; flex-direction: column; gap: 8px;">
                     <div style="color: var(--color-text-dim); font-style: italic; margin-bottom: 5px;">"${planet.desc}"</div>
                     <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed var(--color-primary-dim);">
@@ -172,6 +139,7 @@ class NavView {
                 )
             }
                 </div>
+
                 <div class="actions-container" style="margin-top: 15px;">
                      <button class="warp-btn" style="width: 100%; padding: 15px; background: var(--color-primary); color: #000; border: none; font-weight: bold; font-family: var(--font-display); cursor: pointer; text-transform: uppercase;">
                         ${planet.id === this.state.currentSystem?.id ? 'RE-ESTABLISH ORBIT (0 NRG)' : `INITIATE WARP (${actualCost} NRG)`}
@@ -186,6 +154,7 @@ class NavView {
                 window.dispatchEvent(new CustomEvent('req-warp', { detail: planet }));
             });
         }
+
         const scanBtn = panel.querySelector('.scan-btn');
         if (scanBtn) {
             scanBtn.addEventListener('click', () => {
@@ -194,5 +163,3 @@ class NavView {
         }
     }
 }
-
-

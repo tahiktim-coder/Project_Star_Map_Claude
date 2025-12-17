@@ -1,6 +1,6 @@
 import { GameState } from './state.js';
-import { NavView } from './views/navView.js';
-import { OrbitView } from './views/orbitView.js';
+import { NavView } from './views/NavView.js';
+import { OrbitView } from './views/OrbitView.js';
 import { PlanetGenerator } from './generators/planet.js';
 
 class App {

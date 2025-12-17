@@ -466,3 +466,35 @@ body {
     box-shadow: 0 0 20px rgba(169, 169, 169, 0.2);
     border: 1px solid #808080;
 }
+/* --- Sector Map Visuals --- */
+.sector-map-bg {
+    background-color: #000502;
+    background-image:
+        radial-gradient(circle at 50% 50%, transparent 0%, transparent 19%, rgba(0, 255, 65, 0.1) 19.5%, transparent 20%),
+        radial-gradient(circle at 50% 50%, transparent 0%, transparent 39%, rgba(0, 255, 65, 0.1) 39.5%, transparent 40%),
+        radial-gradient(circle at 50% 50%, transparent 0%, transparent 59%, rgba(0, 255, 65, 0.1) 59.5%, transparent 60%),
+        radial-gradient(circle at 50% 50%, transparent 0%, transparent 79%, rgba(0, 255, 65, 0.1) 79.5%, transparent 80%),
+        /* Linear Grid */
+        linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes scan {
+    0% {
+        left: 0%;
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        left: 100%;
+        opacity: 0;
+    }
+}
