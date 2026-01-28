@@ -21,6 +21,10 @@ class AudioSystem {
         // Also toggle music (HTML Audio element)
         if (this.bgMusic && this.bgMusic.volume !== undefined) {
             this.bgMusic.volume = this.muted ? 0 : this.musicVolume;
+            // Resume playback if unmuting and music is paused
+            if (!this.muted && this.bgMusic.paused) {
+                this.bgMusic.play().catch(() => {});
+            }
         }
 
         // Start music on first unmute
