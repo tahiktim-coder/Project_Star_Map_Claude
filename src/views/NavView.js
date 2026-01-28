@@ -29,7 +29,12 @@ class NavView {
                         ${isGhost ? 'opacity: 0.35; animation: ghost-shimmer 3s ease-in-out infinite;' : ''}">
 
                 <div class="planet-visual type-${planet.type} nav-miniature"
-                     style="width: 100%; height: 100%; animation-duration: 10s;">
+                     style="width: 100%; height: 100%; animation-duration: 10s;
+                            --seed-hue: ${(planet.id.charCodeAt(0) * 17) % 360}deg;
+                            --seed-offset-x: ${((planet.id.charCodeAt(1) || 50) % 40) + 20}%;
+                            --seed-offset-y: ${((planet.id.charCodeAt(2) || 60) % 40) + 30}%;
+                            --seed-scale: ${0.8 + ((planet.id.charCodeAt(3) || 70) % 40) / 100};
+                            --seed-rotation: ${(planet.id.charCodeAt(0) * 7) % 360}deg;">
                 </div>
 
                 <!-- Label -->

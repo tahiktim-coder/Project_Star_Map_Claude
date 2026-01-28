@@ -280,11 +280,20 @@ class GameState {
         }
 
         // Starvation warnings and consequences
+        const livingCrew = this.crew.filter(c => c.status !== 'DEAD');
+        const rationPerCrew = livingCrew.length > 0 ? this.rations / livingCrew.length : 0;
+
+        // Warning at 5 rations
         if (this.rations === 5) {
-            this.addLog("A.U.R.A.: Rationing protocol initiated. Food reserves critically low.");
+            this.addLog("⚠ A.U.R.A.: Food reserves dropping. Rationing protocol recommended.");
         }
+        // Warning at 3-4 rations
+        if (this.rations >= 3 && this.rations <= 4) {
+            this.addLog(`⚠ WARNING: Only ${this.rations} rations remaining for ${livingCrew.length} crew.`);
+        }
+        // Critical warning at 1-2 rations
         if (this.rations <= 2 && this.rations > 0) {
-            this.addLog("WARNING: Rations critical. Crew morale deteriorating.");
+            this.addLog(`🔴 CRITICAL: ${this.rations} ration${this.rations > 1 ? 's' : ''} left! Crew beginning to starve.`);
             // +1 stress to all living crew
             this.crew.forEach(c => {
                 if (c.status !== 'DEAD') {
@@ -296,50 +305,45 @@ class GameState {
                 window.AuraSystem.tryComment('LOW_RESOURCES', this, true);
             }
         }
+        // No rations - 2 action grace period before death
         if (this.rations === 0) {
-            // Starvation: first max out stress, then kill if already at max
-            const living = this.crew.filter(c => c.status !== 'DEAD');
-            if (living.length > 0) {
-                // Find crew who are already at max stress (3)
-                const maxStressedCrew = living.filter(c => (c.stress || 0) >= 3);
+            this._starvationCounter = (this._starvationCounter || 0) + 1;
 
-                if (maxStressedCrew.length > 0) {
-                    // Kill one crew member who was already at max stress
-                    const victim = maxStressedCrew[Math.floor(Math.random() * maxStressedCrew.length)];
+            if (this._starvationCounter === 1) {
+                // First action without food - warning only
+                this.addLog(`🔴 CRITICAL: No food. Crew can survive 2 more actions without eating.`);
+                livingCrew.forEach(c => {
+                    c.stress = Math.min(3, (c.stress || 0) + 1);
+                });
+            } else if (this._starvationCounter === 2) {
+                // Second action without food - max stress warning
+                this.addLog(`🔴 STARVATION: Crew weakening rapidly. One more action without food will be fatal.`);
+                livingCrew.forEach(c => {
+                    c.stress = 3; // Max stress
+                });
+            } else {
+                // Third+ action without food - someone dies
+                const maxStressedCrew = livingCrew.filter(c => (c.stress || 0) >= 3);
+                const candidates = maxStressedCrew.length > 0 ? maxStressedCrew : livingCrew;
+
+                if (candidates.length > 0) {
+                    const victim = candidates[Math.floor(Math.random() * candidates.length)];
                     victim.status = 'DEAD';
-                    this.addLog(`CRITICAL: ${victim.name} has died of starvation. Their body could take no more.`);
-                    // Dispatch crew death event for audio
+                    this.addLog(`☠ DEATH: ${victim.name} has died of starvation.`);
                     window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: victim } }));
-                    // Bark: crew reacts to death
                     if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
                         window.BarkSystem.tryBark('CREW_DEATH', this, { crew: victim });
                     }
-                    // A.U.R.A. death commentary
                     if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
                         window.AuraSystem.tryComment('CREW_DEATH', this, true);
                     }
-                    // Check if crew is now critically low (2 or less)
-                    const remainingCrew = this.crew.filter(c => c.status !== 'DEAD').length;
-                    if (remainingCrew <= 2 && remainingCrew > 0) {
-                        setTimeout(() => {
-                            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
-                                window.AuraSystem.tryComment('FEW_CREW', this, true);
-                            }
-                        }, 800);
-                    }
-                } else {
-                    // No one at max stress yet - just max out everyone's stress
-                    this.addLog(`CRITICAL: No rations remaining. Crew starving.`);
-                    living.forEach(c => {
-                        c.stress = 3; // Max stress
-                    });
-                    this.addLog(`All crew stress maxed. Find food immediately or someone will die.`);
-                    // A.U.R.A. warning
-                    if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
-                        window.AuraSystem.tryComment('LOW_RESOURCES', this, true);
-                    }
+                    // Reset counter so next death takes another 3 actions
+                    this._starvationCounter = 0;
                 }
             }
+        } else {
+            // Reset starvation counter when we have food
+            this._starvationCounter = 0;
         }
 
         this.emitUpdates(); // emitUpdates() calls checkLoseConditions()
@@ -1088,11 +1092,22 @@ class App {
             return;
         }
 
-        // Select encounter by weighted random
-        const encounters = (typeof EXODUS_ENCOUNTERS !== 'undefined') ? EXODUS_ENCOUNTERS : [];
-        if (encounters.length === 0) {
+        // Select encounter by weighted random - avoid duplicates
+        const allEncounters = (typeof EXODUS_ENCOUNTERS !== 'undefined') ? EXODUS_ENCOUNTERS : [];
+        if (allEncounters.length === 0) {
             this.state.addLog("ERROR: Exodus encounter data unavailable.");
             return;
+        }
+
+        // Track encountered types to avoid repetition
+        this.state._encounteredExodus = this.state._encounteredExodus || [];
+
+        // Filter out already encountered types (if we have options)
+        let encounters = allEncounters.filter(e => !this.state._encounteredExodus.includes(e.id));
+        if (encounters.length === 0) {
+            // All encountered, reset but still use all
+            encounters = allEncounters;
+            this.state.addLog("A.U.R.A.: Similar wreck configuration detected. We've seen this pattern before.");
         }
 
         const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
@@ -1103,7 +1118,20 @@ class App {
             if (roll <= 0) { selected = enc; break; }
         }
 
-        const shipName = selected.getShipName();
+        // Mark this encounter type as seen
+        if (!this.state._encounteredExodus.includes(selected.id)) {
+            this.state._encounteredExodus.push(selected.id);
+        }
+
+        // Get unique ship name - avoid using the same ship twice
+        this.state._encounteredShipNames = this.state._encounteredShipNames || [];
+        let shipName = selected.getShipName();
+        let attempts = 0;
+        while (this.state._encounteredShipNames.includes(shipName) && attempts < 10) {
+            shipName = selected.getShipName();
+            attempts++;
+        }
+        this.state._encounteredShipNames.push(shipName);
         // Bark: crew reacts to Exodus wreck
         if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
             window.BarkSystem.tryBark('EXODUS_FOUND', this.state, { planet });

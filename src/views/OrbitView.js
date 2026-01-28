@@ -149,6 +149,11 @@ class OrbitView {
                             width: 260px; height: 260px;
                             border-radius: 50%;
                             position: relative;
+                            --seed-hue: ${(planet.id.charCodeAt(0) * 17) % 360}deg;
+                            --seed-offset-x: ${((planet.id.charCodeAt(1) || 50) % 40) + 20}%;
+                            --seed-offset-y: ${((planet.id.charCodeAt(2) || 60) % 40) + 30}%;
+                            --seed-scale: ${0.8 + ((planet.id.charCodeAt(3) || 70) % 40) / 100};
+                            --seed-rotation: ${(planet.id.charCodeAt(0) * 7) % 360}deg;
                         ">
                             <!-- Atmosphere/Glow Layer -->
                             <div style="position:absolute; top:-10px; left:-10px; right:-10px; bottom:-10px; border-radius:50%; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); pointer-events:none;"></div>

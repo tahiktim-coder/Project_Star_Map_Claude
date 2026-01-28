@@ -753,11 +753,15 @@ body {
     box-shadow: inset 10px 10px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 50, 0, 0.2);
 }
 
-/* 2. ICE WORLD: Subsurface scattering */
+/* 2. ICE WORLD: Subsurface scattering - with procedural variations */
 .planet-visual.type-ICE_WORLD {
+    --offset-x: var(--seed-offset-x, 20%);
+    --offset-y: var(--seed-offset-y, 20%);
     background:
-        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 20%),
-        /* Specular highlight */
+        radial-gradient(circle at var(--offset-x) var(--offset-y), rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 20%),
+        /* Specular highlight - position varies */
+        radial-gradient(circle at calc(100% - var(--offset-x)) calc(100% - var(--offset-y)), rgba(150, 200, 255, 0.3) 0%, transparent 25%),
+        /* Secondary ice cap */
         repeating-radial-gradient(circle at 50% 50%, transparent 0, rgba(255, 255, 255, 0.1) 2px, transparent 4px),
         /* Cracks */
         radial-gradient(circle at 50% 50%, #aeeeee, #008b8b);
@@ -825,15 +829,17 @@ body {
     animation: planet-float 20s ease-in-out infinite;
 }
 
-/* 5. VITAL: Continents and Oceans */
+/* 5. VITAL: Continents and Oceans - with procedural variations */
 .planet-visual.type-VITAL {
+    --offset-x: var(--seed-offset-x, 30%);
+    --offset-y: var(--seed-offset-y, 30%);
     background:
-        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4) 0%, transparent 10%),
-        /* Clouds/Reflection */
-        /* Simulated Continents using noise-like gradients (approximated) */
-        radial-gradient(circle at 70% 20%, #228b22 0%, transparent 20%),
-        radial-gradient(circle at 20% 80%, #228b22 0%, transparent 25%),
-        radial-gradient(circle at 80% 80%, #228b22 0%, transparent 20%),
+        radial-gradient(circle at var(--offset-x) var(--offset-y), rgba(255, 255, 255, 0.4) 0%, transparent 10%),
+        /* Clouds/Reflection - position varies */
+        /* Simulated Continents using seed-based positions */
+        radial-gradient(circle at calc(100% - var(--offset-x)) calc(var(--offset-y) - 10%), #228b22 0%, transparent 20%),
+        radial-gradient(circle at var(--offset-x) calc(100% - var(--offset-y)), #228b22 0%, transparent 25%),
+        radial-gradient(circle at calc(100% - var(--offset-x)) calc(100% - var(--offset-y)), #228b22 0%, transparent 20%),
         radial-gradient(circle at 50% 50%, #00bfff, #000080);
     /* Deep Ocean */
     background-blend-mode: normal;
@@ -866,13 +872,17 @@ body {
     box-shadow: 0 0 50px rgba(30, 144, 255, 0.4);
 }
 
-/* 8. ROCKY: Barren cratered */
+/* 8. ROCKY: Barren cratered - with procedural crater positions */
 .planet-visual.type-ROCKY {
+    --offset-x: var(--seed-offset-x, 60%);
+    --offset-y: var(--seed-offset-y, 40%);
     background:
-        radial-gradient(circle at 60% 40%, rgba(0, 0, 0, 0.3) 5%, transparent 6%),
-        /* Craters */
-        radial-gradient(circle at 30% 70%, rgba(0, 0, 0, 0.3) 8%, transparent 9%),
-        radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.3) 4%, transparent 5%),
+        radial-gradient(circle at var(--offset-x) var(--offset-y), rgba(0, 0, 0, 0.4) 5%, transparent 7%),
+        /* Large crater - varies */
+        radial-gradient(circle at calc(100% - var(--offset-x)) calc(100% - var(--offset-y)), rgba(0, 0, 0, 0.3) 8%, transparent 10%),
+        /* Second crater */
+        radial-gradient(circle at calc(var(--offset-x) + 20%) calc(var(--offset-y) + 30%), rgba(0, 0, 0, 0.25) 4%, transparent 6%),
+        /* Small crater */
         radial-gradient(circle at 30% 30%, #a9a9a9, #505050, #2f4f4f);
     border: none;
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
@@ -984,15 +994,28 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* 12. TERRAFORMED: Hexagonal Shield? Or just Garden */
+/* 12. TERRAFORMED: Artificially Perfect - SPECIAL: Dome shimmer effect */
 .planet-visual.type-TERRAFORMED {
     background:
-        radial-gradient(circle at 50% 50%, transparent 0%, transparent 90%, rgba(0, 255, 204, 0.5) 100%),
-        /* Dome edge */
-        radial-gradient(circle at 30% 70%, #2e8b57 0%, #2e8b57 20%, transparent 25%),
-        /* Greenery */
+        radial-gradient(circle at 50% 50%, transparent 0%, transparent 85%, rgba(0, 255, 204, 0.6) 95%, rgba(0, 255, 204, 0.3) 100%),
+        /* Dome edge - more visible */
+        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.5) 0%, transparent 20%),
+        /* Sunlight reflection */
+        radial-gradient(circle at 30% 70%, #3cb371 0%, #2e8b57 15%, transparent 25%),
+        radial-gradient(circle at 70% 40%, #3cb371 0%, #2e8b57 12%, transparent 22%),
+        /* Greenery patches */
         linear-gradient(to bottom, #87ceeb, #2e8b57);
-    box-shadow: 0 0 60px rgba(0, 255, 204, 0.2), inset 0 0 20px rgba(0, 255, 204, 0.4);
+    border: 1px solid rgba(0, 255, 204, 0.4);
+    box-shadow:
+        0 0 60px rgba(0, 255, 204, 0.3),
+        0 0 100px rgba(0, 255, 150, 0.2),
+        inset 0 0 30px rgba(0, 255, 204, 0.5);
+    animation: terraformed-shimmer 6s ease-in-out infinite;
+}
+
+@keyframes terraformed-shimmer {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.1); }
 }
 
 /* 13. CRYSTALLINE: Sharp facets */
@@ -1170,15 +1193,38 @@ body {
     box-shadow: 0 0 20px rgba(100, 80, 60, 0.3);
 }
 
-/* 24. EDEN: Perfect Paradise */
+/* 24. EDEN: Perfect Paradise - SPECIAL: Enhanced glow and shimmer */
 .planet-visual.type-EDEN {
     background:
-        radial-gradient(circle at 30% 30%, rgba(255, 255, 200, 0.6) 0%, transparent 30%),
-        radial-gradient(circle at 60% 40%, rgba(100, 200, 100, 0.5) 0%, transparent 40%),
-        radial-gradient(circle at 40% 70%, rgba(100, 150, 200, 0.5) 0%, transparent 30%),
-        radial-gradient(circle at 50% 50%, #44aa44, #228822, #115511);
-    border: none;
-    box-shadow: 0 0 50px rgba(100, 255, 100, 0.5), 0 0 100px rgba(100, 200, 255, 0.2);
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 200, 0.8) 0%, transparent 25%),
+        radial-gradient(circle at 60% 40%, rgba(100, 255, 150, 0.6) 0%, transparent 35%),
+        radial-gradient(circle at 40% 70%, rgba(150, 200, 255, 0.5) 0%, transparent 30%),
+        radial-gradient(circle at 70% 60%, rgba(200, 255, 200, 0.4) 0%, transparent 25%),
+        radial-gradient(circle at 50% 50%, #66cc66, #33aa33, #117711);
+    border: 2px solid rgba(100, 255, 150, 0.3);
+    box-shadow:
+        0 0 60px rgba(100, 255, 100, 0.6),
+        0 0 120px rgba(100, 200, 255, 0.3),
+        0 0 180px rgba(150, 255, 150, 0.2),
+        inset 0 0 40px rgba(200, 255, 200, 0.3);
+    animation: eden-pulse 4s ease-in-out infinite;
+}
+
+@keyframes eden-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 60px rgba(100, 255, 100, 0.6),
+            0 0 120px rgba(100, 200, 255, 0.3),
+            0 0 180px rgba(150, 255, 150, 0.2),
+            inset 0 0 40px rgba(200, 255, 200, 0.3);
+    }
+    50% {
+        box-shadow:
+            0 0 80px rgba(100, 255, 100, 0.8),
+            0 0 150px rgba(100, 200, 255, 0.4),
+            0 0 220px rgba(150, 255, 150, 0.3),
+            inset 0 0 50px rgba(200, 255, 200, 0.4);
+    }
 }
 
 /* 25. MACHINE_WORLD: Artificial Surface */

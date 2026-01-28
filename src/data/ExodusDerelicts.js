@@ -134,50 +134,54 @@ const EXODUS_ENCOUNTERS = [
         ],
         choices: [
             {
-                text: "Wake them all",
-                desc: "-5 Rations (feeding newcomers), +2 new crew members join! All crew -1 Stress.",
+                text: "Attempt revival",
+                desc: "-3 Rations, 60% chance: 1 survivor joins crew. 40% chance: none survive.",
                 effect: (state) => {
-                    state.rations = Math.max(0, state.rations - 5);
+                    state.rations = Math.max(0, state.rations - 3);
                     state.crew.forEach(c => {
                         if (c.status !== 'DEAD' && c.stress > 0) c.stress = Math.max(0, c.stress - 1);
                     });
 
-                    // Add 2 new crew members from the sleepers!
-                    const sleeperNames = ['Lt. Vasquez', 'Dr. Kenji', 'Eng. Priya', 'Spc. Okonkwo', 'Tech Reyes', 'Med. Lindqvist'];
-                    const sleeperRoles = [
-                        { tag: 'SECURITY', personality: 'PARANOID' },
-                        { tag: 'SPECIALIST', personality: 'CURIOUS' },
-                        { tag: 'ENGINEER', personality: 'CYNICAL' },
-                        { tag: 'MEDIC', personality: 'HOPEFUL' }
-                    ];
-                    const availableRoles = sleeperRoles.filter(r => !state.crew.some(c => c.tags.includes(r.tag) && c.status !== 'DEAD'));
-                    const usedNames = [];
+                    // 60% chance of at least one survivor
+                    if (Math.random() < 0.6) {
+                        const sleeperNames = ['Lt. Vasquez', 'Dr. Kenji', 'Eng. Priya', 'Spc. Okonkwo', 'Tech Reyes', 'Med. Lindqvist'];
+                        const sleeperRoles = [
+                            { tag: 'SECURITY', personality: 'PARANOID' },
+                            { tag: 'SPECIALIST', personality: 'CURIOUS' },
+                            { tag: 'ENGINEER', personality: 'CYNICAL' },
+                            { tag: 'MEDIC', personality: 'HOPEFUL' }
+                        ];
+                        const availableRoles = sleeperRoles.filter(r => !state.crew.some(c => c.tags.includes(r.tag) && c.status !== 'DEAD'));
 
-                    for (let i = 0; i < 2; i++) {
-                        const name = sleeperNames.filter(n => !usedNames.includes(n))[Math.floor(Math.random() * (sleeperNames.length - usedNames.length))];
-                        usedNames.push(name);
-                        const role = availableRoles.length > 0 ? availableRoles.splice(Math.floor(Math.random() * availableRoles.length), 1)[0] : { tag: 'CREW', personality: 'HOPEFUL' };
+                        const name = sleeperNames[Math.floor(Math.random() * sleeperNames.length)];
+                        const role = availableRoles.length > 0 ? availableRoles[Math.floor(Math.random() * availableRoles.length)] : { tag: 'CREW', personality: 'HOPEFUL' };
 
                         const newCrew = {
-                            id: `sleeper_${Date.now()}_${i}`,
+                            id: `sleeper_${Date.now()}`,
                             name: name,
                             role: role.tag === 'SECURITY' ? 'Security' : role.tag === 'MEDIC' ? 'Medical' : role.tag === 'ENGINEER' ? 'Engineer' : role.tag === 'SPECIALIST' ? 'Specialist' : 'Crew',
                             status: 'HEALTHY',
-                            stress: 1, // Wake up stressed
-                            tags: [role.tag, 'SLEEPER'], // Mark as sleeper for endings
+                            stress: 2, // Wake up very stressed
+                            tags: [role.tag, 'SLEEPER'],
                             personality: role.personality,
-                            portrait: i === 0 ? 'M_6' : 'F_6' // Generic portraits for sleepers
+                            portrait: Math.random() > 0.5 ? 'M_6' : 'F_6'
                         };
                         state.crew.push(newCrew);
-                        state.addLog(`${name} joins the crew! (${newCrew.role})`);
+                        state.addLog(`${name} survives revival and joins the crew! (${newCrew.role})`);
+                        state.addLog("The other two pods failed during the revival sequence. Their faces were peaceful.");
+                        state.addLog("EXODUS LOG: '...the sky turned copper three days before launch. They said it was atmospheric copper oxide. We knew it was fire.'");
+
+                        if (typeof AuraSystem !== 'undefined') AuraSystem.adjustEthics(1, 'Saved a life from cryo');
+                        return `One sleeper survived: ${name} joins the crew! Two pods failed. (-3 Rations, +1 Crew)`;
+                    } else {
+                        // All three die
+                        state.addLog("The revival sequence fails. One by one, the vital signs flatline.");
+                        state.addLog("Dr. Aris: \"The cryo damage was too extensive. Decades of micro-failures. They never had a chance.\"");
+                        state.crew.forEach(c => {
+                            if (c.status !== 'DEAD') c.stress = Math.min(3, (c.stress || 0) + 1);
+                        });
+                        return "Revival failed. All three sleepers lost. The crew is shaken. (-3 Rations, all crew +1 Stress)";
                     }
-
-                    // Third sleeper sadly doesn't make it - adds drama
-                    state.addLog("The third sleeper's pod malfunctioned during revival. They didn't make it. A moment of silence fills the bay.");
-                    state.addLog("EXODUS LOG: '...the sky turned copper three days before launch. They said it was atmospheric copper oxide. We knew it was fire.'");
-
-                    if (typeof AuraSystem !== 'undefined') AuraSystem.adjustEthics(2, 'Saved lives from cryo — expanded the crew');
-                    return "Two sleepers successfully revived and join the crew! The third... didn't make it. (-5 Rations, +2 Crew)";
                 }
             },
             {
