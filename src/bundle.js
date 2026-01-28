@@ -4,58 +4,130 @@
  * Merged to bypass ES Module CORS restrictions on file:// protocol.
  */
 
+// --- TESTING MODE HELPER ---
+// When TEST_MODE is enabled, biases random rolls toward rare/interesting outcomes
+window.TEST_MODE = false;
+
+/**
+ * Test-aware random function.
+ * - In normal mode: returns Math.random() (0-1)
+ * - In test mode: returns 0.01 (forces most "rare" branches to trigger)
+ * @param {string} context - Optional context for logging
+ * @param {boolean} favorRare - If true, test mode returns low value (0.01), otherwise high (0.99)
+ */
+function testRandom(context = '', favorRare = true) {
+    if (window.TEST_MODE) {
+        // In test mode, force rare outcomes
+        // favorRare=true means we want low rolls (for "if random < threshold" checks)
+        // favorRare=false means we want high rolls (for "if random > threshold" checks)
+        return favorRare ? 0.01 : 0.99;
+    }
+    return Math.random();
+}
+
+/**
+ * Test-aware chance check.
+ * @param {number} chance - Probability 0-1 (e.g., 0.1 = 10%)
+ * @param {string} context - Optional logging context
+ * @returns {boolean} - True if the event should happen
+ */
+function testChance(chance, context = '') {
+    if (window.TEST_MODE) {
+        // In test mode, always succeed on non-trivial chances
+        return chance > 0;
+    }
+    return Math.random() < chance;
+}
+
 // --- 1. DATA & GENERATORS ---
 
 class CrewGenerator {
-    static FIRST_NAMES = [
-        "Jace", "Lyra", "Kael", "Mira", "Oren", "Zara", "Thorn", "Elara", "Jax", "Nia",
-        "Rian", "Cora", "Vane", "Sola", "Kian", "Eris", "Dax", "Luna", "Torin", "Vega"
+    // Commander gets a random name; the rest are fixed characters
+    static COMMANDER_FIRST = [
+        "Jace", "Lyra", "Kael", "Oren", "Zara", "Thorn", "Elara", "Nia",
+        "Rian", "Cora", "Sola", "Kian", "Eris", "Dax", "Luna", "Torin"
+    ];
+    static COMMANDER_LAST = [
+        "Ryder", "Stark", "Chen", "Novak", "Price", "Solos", "Thorne", "Cross",
+        "Moon", "Strider", "Frey", "Wong", "Sato", "Khan", "Webb", "Mercer"
     ];
 
-    static LAST_NAMES = [
-        "Vance", "Ryder", "Stark", "Chen", "Novak", "Price", "Vega", "Solos", "Thorne", "Cross",
-        "Moon", "Strider", "Frey", "Wong", "Sato", "Khan", "Webb", "Mercer", "Cole", "Reid"
-    ];
+    static generateCrew() {
+        const first = this.COMMANDER_FIRST[Math.floor(Math.random() * this.COMMANDER_FIRST.length)];
+        const last = this.COMMANDER_LAST[Math.floor(Math.random() * this.COMMANDER_LAST.length)];
+        const cmdrGender = Math.random() > 0.5 ? 'M' : 'F';
 
-
-    static ROLES = [
-        { name: "Cmdr.", tag: "LEADER" },
-        { name: "Eng.", tag: "ENGINEER" },
-        { name: "Dr.", tag: "MEDIC" },
-        { name: "Spc.", tag: "SECURITY" },
-        { name: "Tech", tag: "SPECIALIST" }
-    ];
-
-    static generateCrew(count = 5) {
-        let crew = [];
-        // Ensure one Commander
-        crew.push(this.createmember('Cmdr.', 'LEADER'));
-        // Fill rest
-        for (let i = 1; i < count; i++) {
-            const role = this.ROLES[Math.floor(Math.random() * (this.ROLES.length - 1)) + 1];
-            crew.push(this.createmember(role.name, role.tag));
-        }
-        return crew;
-    }
-
-    static createmember(prefix, tag) {
-        const first = this.FIRST_NAMES[Math.floor(Math.random() * this.FIRST_NAMES.length)];
-        const last = this.LAST_NAMES[Math.floor(Math.random() * this.LAST_NAMES.length)];
-        const gender = Math.random() > 0.5 ? 'M' : 'F';
-        // Random Age 25-50
-        const age = Math.floor(Math.random() * 25) + 25;
-
-        return {
-            id: Date.now() + Math.random(),
-            name: `${prefix} ${last}`,
-            realName: `${first} ${last}`,
-            gender: gender,
-            age: age,
-            // 1-5 for each gender. User needs M_1.png ... M_5.png and F_1.png ... F_5.png
-            portraitId: `${gender}_${Math.floor(Math.random() * 5) + 1}`,
-            status: 'HEALTHY',
-            tags: [tag]
-        };
+        return [
+            // Commander — random name
+            {
+                id: Date.now() + Math.random(),
+                name: `Cmdr. ${last}`,
+                realName: `${first} ${last}`,
+                gender: cmdrGender,
+                age: Math.floor(Math.random() * 15) + 35,
+                portraitId: `${cmdrGender}_1`,
+                status: 'HEALTHY',
+                stress: 0,
+                trait: null,
+                tags: ['LEADER']
+            },
+            // Jaxon — Engineer
+            {
+                id: Date.now() + Math.random() + 1,
+                name: 'Eng. Jaxon',
+                realName: 'Jaxon Mercer',
+                gender: 'M',
+                age: 42,
+                portraitId: 'M_2',
+                status: 'HEALTHY',
+                stress: 0,
+                trait: null,
+                tags: ['ENGINEER'],
+                personality: 'PESSIMIST'
+            },
+            // Dr. Aris — Medic
+            {
+                id: Date.now() + Math.random() + 2,
+                name: 'Dr. Aris',
+                realName: 'Aris Novak',
+                gender: 'F',
+                age: 38,
+                portraitId: 'F_3',
+                status: 'HEALTHY',
+                stress: 0,
+                trait: null,
+                tags: ['MEDIC'],
+                personality: 'HUMANIST'
+            },
+            // Vance — Security
+            {
+                id: Date.now() + Math.random() + 3,
+                name: 'Spc. Vance',
+                realName: 'Kael Vance',
+                gender: 'M',
+                age: 45,
+                portraitId: 'M_4',
+                status: 'HEALTHY',
+                stress: 0,
+                trait: null,
+                tags: ['SECURITY'],
+                personality: 'SURVIVOR'
+            },
+            // Mira — Specialist
+            {
+                id: Date.now() + Math.random() + 4,
+                name: 'Tech Mira',
+                realName: 'Mira Chen',
+                gender: 'F',
+                age: 29,
+                portraitId: 'F_5',
+                status: 'HEALTHY',
+                stress: 0,
+                trait: null,
+                tags: ['SPECIALIST'],
+                personality: 'CURIOUS'
+            }
+        ];
     }
 }
 
@@ -84,20 +156,62 @@ class GameState {
     }
 
     init() {
-        this.fuel = 100;
-        this.oxygen = 100;
-        this.energy = 100;
-        this.metals = 50; // Start with minimal for 1 probe
-        this.maxMetals = 300; // Cap at 300 (User Request)
-        this.probeIntegrity = 100;
-        this.cargo = []; // Added Cargo
-        this.upgrades = []; // INSTALLED MODULES
+        // --- Resources (3 pillars) ---
+        this.energy = 100;         // Universal action currency (cap 100)
+        this.salvage = 50;         // Crafting/upgrade currency (was "metals")
+        this.maxSalvage = 300;
+        this.rations = 20;         // Time pressure / food supply (cap 30)
+        this.maxRations = 30;
 
+        // --- Legacy aliases for systems that still reference old names ---
+        // TODO: Remove these once all systems are updated
+        Object.defineProperty(this, 'metals', {
+            get: () => this.salvage,
+            set: (v) => { this.salvage = v; },
+            configurable: true
+        });
+        Object.defineProperty(this, 'maxMetals', {
+            get: () => this.maxSalvage,
+            set: (v) => { this.maxSalvage = v; },
+            configurable: true
+        });
+
+        // --- Probe ---
+        this.probeIntegrity = 100;
+
+        // --- Cargo & Upgrades ---
+        this.cargo = [];
+        this.upgrades = [];
+
+        // --- Fungus Farm ---
+        this.fungusActionCounter = 0; // Counts major actions; at 3, grants +1 ration
+
+        // --- Navigation ---
         this.currentSector = 1;
         this.currentSystem = null;
-        this.lastVisitedSystem = null; // Added for 0-cost return logic
+        this.lastVisitedSystem = null;
 
-        this.crew = CrewGenerator.generateCrew(5);
+        // --- Ship Decks ---
+        this.shipDecks = {
+            bridge:      { status: 'OPERATIONAL', repairCost: 60, label: 'BRIDGE' },
+            lab:         { status: 'OPERATIONAL', repairCost: 40, label: 'LABORATORY' },
+            quarters:    { status: 'OPERATIONAL', repairCost: 50, label: 'CREW QUARTERS' },
+            cargo:       { status: 'OPERATIONAL', repairCost: 30, label: 'CARGO HOLD' },
+            engineering: { status: 'OPERATIONAL', repairCost: 80, label: 'ENGINEERING' }
+        };
+
+        // --- Crew ---
+        this.crew = CrewGenerator.generateCrew();
+
+        // --- Action counter (for passive healing, fungus, etc.) ---
+        this.actionsTaken = 0;
+        this.gameOver = false;
+
+        // --- Exodus Log collection (Phase 2) ---
+        this.exodusLogsFound = [];
+
+        // --- Colony knowledge (learned from failed colony encounters) ---
+        this._colonyKnowledge = 0;
 
         this.emitUpdates();
     }
@@ -114,6 +228,10 @@ class GameState {
     }
 
     consumeEnergy(amount) {
+        // TEST MODE: No energy consumption
+        if (window.TEST_MODE) {
+            return true; // Always succeed, don't deduct
+        }
         if (this.energy >= amount) {
             this.energy -= amount;
             this.emitUpdates();
@@ -123,7 +241,287 @@ class GameState {
         return false;
     }
 
+    /**
+     * Consume 1 ration. Called on major actions (warp, EVA, sector jump).
+     * Handles fungus farm counter and starvation consequences.
+     * Returns true if rations were available (even if hitting 0).
+     */
+    consumeRation() {
+        this.rations = Math.max(0, this.rations - 1);
+        this.actionsTaken++;
+
+        // Fungus farm: check if cargo has a Fungus Culture
+        const hasFungus = this.cargo.some(item => item.id === 'FUNGUS_CULTURE');
+        const cargoDamaged = this.shipDecks.cargo.status === 'DAMAGED';
+        if (hasFungus && !cargoDamaged) {
+            this.fungusActionCounter++;
+            if (this.fungusActionCounter >= 3) {
+                this.fungusActionCounter = 0;
+                if (this.rations < this.maxRations) {
+                    this.rations++;
+                    this.addLog("Fungus Culture: Radiotrophic growth harvested. +1 Ration.");
+                }
+            }
+        }
+
+        // Passive injury healing: INJURED crew recover after 3 actions if quarters operational
+        // CATATONIC crew cannot heal passively
+        if (this.shipDecks.quarters.status === 'OPERATIONAL') {
+            this.crew.forEach(c => {
+                if (c.status === 'INJURED' && c.trait !== 'CATATONIC') {
+                    c.healCounter = (c.healCounter || 0) + 1;
+                    if (c.healCounter >= 3) {
+                        c.status = 'HEALTHY';
+                        c.healCounter = 0;
+                        this.addLog(`${c.name} has recovered from injuries.`);
+                    }
+                }
+            });
+        }
+
+        // Starvation warnings and consequences
+        if (this.rations === 5) {
+            this.addLog("A.U.R.A.: Rationing protocol initiated. Food reserves critically low.");
+        }
+        if (this.rations <= 2 && this.rations > 0) {
+            this.addLog("WARNING: Rations critical. Crew morale deteriorating.");
+            // +1 stress to all living crew
+            this.crew.forEach(c => {
+                if (c.status !== 'DEAD') {
+                    c.stress = Math.min(3, (c.stress || 0) + 1);
+                }
+            });
+            // A.U.R.A. low resources commentary
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('LOW_RESOURCES', this, true);
+            }
+        }
+        if (this.rations === 0) {
+            // Kill 1 random living crew member
+            const living = this.crew.filter(c => c.status !== 'DEAD');
+            if (living.length > 0) {
+                const victim = living[Math.floor(Math.random() * living.length)];
+                victim.status = 'DEAD';
+                this.addLog(`CRITICAL: ${victim.name} has died of starvation.`);
+                // Dispatch crew death event for audio
+                window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: victim } }));
+                // Bark: crew reacts to death
+                if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                    window.BarkSystem.tryBark('CREW_DEATH', this, { crew: victim });
+                }
+                // A.U.R.A. death commentary
+                if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                    window.AuraSystem.tryComment('CREW_DEATH', this, true);
+                }
+                // Check if crew is now critically low (2 or less)
+                const remainingCrew = this.crew.filter(c => c.status !== 'DEAD').length;
+                if (remainingCrew <= 2 && remainingCrew > 0) {
+                    setTimeout(() => {
+                        if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                            window.AuraSystem.tryComment('FEW_CREW', this, true);
+                        }
+                    }, 800);
+                }
+            }
+        }
+
+        this.emitUpdates(); // emitUpdates() calls checkLoseConditions()
+    }
+
+    /**
+     * Check if the game should end due to a lose condition.
+     */
+    checkLoseConditions() {
+        if (this.gameOver) return; // Prevent multiple game-over triggers
+        const living = this.crew.filter(c => c.status !== 'DEAD');
+
+        // Total crew loss
+        if (living.length === 0) {
+            this.gameOver = true;
+            window.dispatchEvent(new CustomEvent('game-over', {
+                detail: {
+                    type: 'CREW_LOSS',
+                    title: 'ALL HANDS LOST',
+                    message: 'EXODUS-9: ALL HANDS LOST. Vessel drifting. Beacon active. No response expected.'
+                }
+            }));
+            return;
+        }
+
+        // Hull breach: 3+ decks damaged and can't afford cheapest repair
+        const damagedDecks = Object.values(this.shipDecks).filter(d => d.status === 'DAMAGED');
+        if (damagedDecks.length >= 3) {
+            const cheapest = Math.min(...damagedDecks.map(d => d.repairCost));
+            if (this.salvage < cheapest) {
+                this.gameOver = true;
+                window.dispatchEvent(new CustomEvent('game-over', {
+                    detail: {
+                        type: 'HULL_BREACH',
+                        title: 'HULL BREACH',
+                        message: 'The hull gave way in the night. The void was merciful — it was quick.'
+                    }
+                }));
+            }
+        }
+    }
+
+    /**
+     * Damage a random operational deck. Used by sector hazards, events, etc.
+     */
+    damageRandomDeck() {
+        const operational = Object.entries(this.shipDecks).filter(([k, v]) => v.status === 'OPERATIONAL');
+        if (operational.length === 0) return null;
+        const [key, deck] = operational[Math.floor(Math.random() * operational.length)];
+        deck.status = 'DAMAGED';
+        this.addLog(`HULL BREACH: ${deck.label} has taken damage! Systems offline.`);
+        this.emitUpdates(); // emitUpdates() calls checkLoseConditions()
+        return key;
+    }
+
+    /**
+     * Repair a specific deck.
+     */
+    repairDeck(deckKey) {
+        const deck = this.shipDecks[deckKey];
+        if (!deck || deck.status === 'OPERATIONAL') return false;
+
+        let cost = deck.repairCost;
+        // Jaxon (Engineer) alive: -30% repair cost
+        const jaxonAlive = this.crew.some(c => c.tags.includes('ENGINEER') && c.status !== 'DEAD');
+        if (jaxonAlive) cost = Math.floor(cost * 0.7);
+        // Engineering damaged: +50% cost
+        if (deckKey !== 'engineering' && this.shipDecks.engineering.status === 'DAMAGED') {
+            cost = Math.floor(cost * 1.5);
+        }
+
+        if (this.salvage >= cost) {
+            this.salvage -= cost;
+            deck.status = 'OPERATIONAL';
+            this.addLog(`REPAIR COMPLETE: ${deck.label} restored to operational status. (-${cost} Salvage)`);
+            this.emitUpdates();
+            return true;
+        }
+        this.addLog(`Insufficient Salvage for repair. Need ${cost}, have ${this.salvage}.`);
+        return false;
+    }
+
+    /**
+     * Check if a specific deck is operational.
+     */
+    isDeckOperational(deckKey) {
+        return this.shipDecks[deckKey]?.status === 'OPERATIONAL';
+    }
+
+    /**
+     * Apply stress traits when crew hit stress level 2, and trigger breakdowns at stress 3.
+     * Called after any stress change.
+     */
+    applyStressTraits() {
+        this.crew.forEach(c => {
+            if (c.status === 'DEAD') return;
+            const stress = c.stress || 0;
+
+            // Stress 2: Assign personality-based negative trait
+            if (stress >= 2 && !c.trait) {
+                switch (c.personality) {
+                    case 'PESSIMIST':  // Jaxon
+                        c.trait = 'HOARDER';
+                        this.addLog(`${c.name}: "We can't afford to waste salvage. Not here. Not now."`);
+                        break;
+                    case 'SURVIVOR':   // Vance
+                        c.trait = 'PARANOID';
+                        this.addLog(`${c.name}: "I'm not sending anyone into that deathtrap."`);
+                        break;
+                    case 'HUMANIST':   // Aris
+                        c.trait = 'BLEEDING_HEART';
+                        this.addLog(`${c.name}: "I won't leave anyone behind. No EVA until everyone is stable."`);
+                        break;
+                    case 'CURIOUS':    // Mira
+                        c.trait = 'RECKLESS';
+                        this.addLog(`${c.name}: "Safe option? Where's the data in safe?"`);
+                        break;
+                    default: break;    // Commander has no stress 2 trait
+                }
+                // A.U.R.A. comments on crew stress
+                if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                    window.AuraSystem.tryComment('CREW_STRESS', this);
+                }
+            }
+
+            // Stress 3: Breakdown events (fire once)
+            if (stress >= 3 && !c.breakdownFired) {
+                c.breakdownFired = true;
+                this.triggerBreakdown(c);
+            }
+
+            // Remove trait if stress drops below 2
+            if (stress < 2 && c.trait) {
+                this.addLog(`${c.name} has calmed down. Negative behavior subsiding.`);
+                c.trait = null;
+                c.breakdownFired = false;
+            }
+        });
+    }
+
+    /**
+     * Trigger a crew member's stress 3 breakdown event.
+     */
+    triggerBreakdown(crewMember) {
+        const c = crewMember;
+
+        // Commander breakdown = game over
+        if (c.tags.includes('LEADER')) {
+            this.gameOver = true;
+            window.dispatchEvent(new CustomEvent('game-over', {
+                detail: {
+                    type: 'COMMANDER_BREAKDOWN',
+                    title: 'COMMAND FAILURE',
+                    message: `Commander ${c.realName.split(' ')[1]} has suffered a complete psychological breakdown. Command chain shattered. The crew is lost without leadership.`
+                }
+            }));
+            return;
+        }
+
+        switch (c.personality) {
+            case 'PESSIMIST': // Jaxon — Sabotage: damages a random deck
+                this.addLog(`ALERT: ${c.name} has sabotaged ship systems in a paranoid episode!`);
+                this.damageRandomDeck();
+                c.stress = 2; // Reset after breakdown, damage is done
+                break;
+
+            case 'HUMANIST': // Aris — Goes catatonic
+                c.status = 'INJURED';
+                c.trait = 'CATATONIC';
+                this.addLog(`Dr. Aris has gone catatonic. She stares at the wall, unresponsive. Medical services unavailable.`);
+                // Stress stays high — she's catatonic, not recovering
+                break;
+
+            case 'SURVIVOR': // Vance — Mutiny: confronts Commander
+                this.addLog(`CRITICAL: Spc. Vance has drawn his sidearm. He demands the Commander step down.`);
+                // Mutiny handler will reset Vance's stress based on outcome
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('crew-mutiny', { detail: { instigator: c } }));
+                }, 100);
+                break;
+
+            case 'CURIOUS': // Mira — Obsessed: EVA costs double but extra loot
+                c.trait = 'OBSESSED';
+                this.addLog(`Tech Mira has become dangerously obsessed. She demands extended EVA time regardless of risk.`);
+                c.stress = 2; // Reset after breakdown
+                break;
+        }
+    }
+
+    /**
+     * Check if any living crew member has a specific trait active.
+     */
+    hasActiveTrait(traitName) {
+        return this.crew.some(c => c.status !== 'DEAD' && c.trait === traitName);
+    }
+
     emitUpdates() {
+        this.applyStressTraits();
+        this.checkLoseConditions();
         window.dispatchEvent(new Event('hud-updated'));
     }
 }
@@ -146,7 +544,7 @@ class App {
     }
 
     init() {
-        console.log("Exodus-1 Systems Initializing...");
+        console.log("Exodus-9 Systems Initializing...");
 
         if (window.AudioSystem) window.AudioSystem.init();
 
@@ -166,8 +564,22 @@ class App {
             };
         }
 
+        // Testing Mode Toggle
+        const btnTesting = document.getElementById('btn-testing');
+        if (btnTesting) {
+            btnTesting.onclick = () => {
+                window.TEST_MODE = !window.TEST_MODE;
+                btnTesting.textContent = window.TEST_MODE ? "TEST MODE: ON" : "TEST MODE: OFF";
+                btnTesting.style.opacity = window.TEST_MODE ? "1" : "0.7";
+                btnTesting.style.borderColor = window.TEST_MODE ? "#ff0000" : "#ff6600";
+                btnTesting.style.color = window.TEST_MODE ? "#ff0000" : "#ff6600";
+                this.state.addLog(window.TEST_MODE
+                    ? "/// TESTING MODE ENABLED /// All random events will favor rare outcomes."
+                    : "/// TESTING MODE DISABLED /// Normal probabilities restored.");
+            };
+        }
+
         // Header Interactions
-        document.getElementById('res-crew').parentElement.onclick = () => this.showCrewManifest();
         const fabBtn = document.getElementById('btn-fab');
         if (fabBtn) fabBtn.onclick = () => this.showFabricator();
 
@@ -177,11 +589,44 @@ class App {
         window.addEventListener('req-action-probe', () => this.handleProbeAction());
         window.addEventListener('req-action-eva', () => this.handleEvaAction());
         window.addEventListener('req-action-colony', () => this.handleColonyAction());
+        window.addEventListener('req-action-exodus', () => this.handleExodusAction());
+        window.addEventListener('req-action-colony-site', () => this.handleFailedColonyAction());
+        window.addEventListener('req-action-derelict', () => this.handleDerelictAction());
+        window.addEventListener('req-action-anomaly', () => this.handleAnomalyAction());
+        window.addEventListener('req-action-lighthouse', () => this.handleLateGamePOI('LIGHTHOUSE'));
+        window.addEventListener('req-action-garden', () => this.handleLateGamePOI('GARDEN'));
+        window.addEventListener('req-action-grave', () => this.handleLateGamePOI('GRAVE'));
+        window.addEventListener('req-action-structure', () => this.handleStructureAction());
+        window.addEventListener('aura-vent-warning', () => this.showAuraVentModal());
         window.addEventListener('req-break-orbit', () => {
             this.state.addLog("Breaking orbit. Systems disengaged.");
             this.renderNav();
         });
+
+        // THE WRONG PLACE special handlers
+        window.addEventListener('req-wrong-escape', () => this.handleWrongPlaceEscape());
+        window.addEventListener('req-wrong-accept', () => this.handleWrongPlaceAccept());
+
         window.addEventListener('req-remote-scan', (e) => this.handleRemoteScan(e.detail));
+        window.addEventListener('req-remote-probe', (e) => this.handleRemoteProbe(e.detail));
+
+        // Ship deck click handlers
+        document.querySelectorAll('.ship-deck').forEach(deckEl => {
+            deckEl.style.cursor = 'pointer';
+            deckEl.addEventListener('click', () => {
+                const room = deckEl.dataset.room;
+                this.showDeckDetail(room);
+            });
+        });
+
+        // Game Over handler
+        window.addEventListener('game-over', (e) => this.showGameOver(e.detail));
+
+        // Mutiny handler (Vance stress 3 breakdown)
+        window.addEventListener('crew-mutiny', (e) => this.showMutinyEvent(e.detail));
+
+        // Anomaly teleportation handler (visual effect + view refresh)
+        window.addEventListener('anomaly-teleport', (e) => this.handleAnomalyTeleport(e.detail));
 
         this.state.init();
         this.state.sectorNodes = PlanetGenerator.generateSector(1);
@@ -193,33 +638,143 @@ class App {
     handleWarp(planet) {
         // Free warp if returning to the last visited system (simulating orbit re-entry)
         let cost = planet.fuelCost;
+        // Bridge damaged: +50% warp cost
+        if (!this.state.isDeckOperational('bridge')) {
+            cost = Math.floor(cost * 1.5);
+        }
         if (this.state.lastVisitedSystem && this.state.lastVisitedSystem.id === planet.id) {
             cost = 0;
-            this.state.addLog("Orbit re-entry trajectory calculated. Fuel cost negligible.");
+            this.state.addLog("Orbit re-entry trajectory calculated. Energy cost negligible.");
         }
 
         if (this.state.consumeEnergy(cost)) {
             this.state.addLog(`Warping to ${planet.name}...`);
-            this.state.currentSystem = planet;
-            this.state.lastVisitedSystem = planet; // Track last visited
 
-            // UPGRADE: Autodoc Medbay
+            // A.U.R.A. commentary on warp initiation
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('WARP_START', this.state);
+            }
+
+            this.state.currentSystem = planet;
+            this.state.lastVisitedSystem = planet;
+
+            // Consume 1 ration (major action)
+            this.state.consumeRation();
+
+            // AMBIENT ENERGY COLLECTION: Ship collectors absorb local radiation on arrival
+            // Returns a percentage of warp cost based on destination type
+            if (cost > 0) {
+                let returnPercent = 0.5; // Default 50%
+                let returnReason = 'solar radiation';
+
+                // Adjust based on planet type
+                if (planet.type === 'GAS_GIANT') {
+                    returnPercent = 0.75; // Gas giants emit lots of energy
+                    returnReason = 'atmospheric discharge';
+                } else if (['VOLCANIC', 'SHATTERED'].includes(planet.type)) {
+                    returnPercent = 0.65; // Geothermal/core energy
+                    returnReason = 'thermal emissions';
+                } else if (['CRYSTALLINE', 'SINGING'].includes(planet.type)) {
+                    returnPercent = 0.60; // Resonant energy
+                    returnReason = 'harmonic resonance';
+                } else if (['ROGUE', 'ICE_WORLD'].includes(planet.type)) {
+                    returnPercent = 0.35; // Cold, far from stars
+                    returnReason = 'minimal ambient radiation';
+                } else if (['VITAL', 'TERRAFORMED', 'OCEANIC'].includes(planet.type)) {
+                    returnPercent = 0.55; // Stable systems
+                    returnReason = 'stellar proximity';
+                } else if (['MECHA', 'GRAVEYARD'].includes(planet.type)) {
+                    returnPercent = 0.45; // Residual tech energy
+                    returnReason = 'residual power signatures';
+                }
+
+                // Some variance (±10%)
+                const variance = (Math.random() * 0.2) - 0.1;
+                returnPercent = Math.max(0.25, Math.min(0.80, returnPercent + variance));
+
+                const energyReturn = Math.floor(cost * returnPercent);
+                if (energyReturn > 0) {
+                    this.state.energy = Math.min(100, this.state.energy + energyReturn);
+                    this.state.addLog(`Collectors absorbed ${energyReturn} energy from ${returnReason}.`);
+                }
+            }
+
+            // UPGRADE: Autodoc — heals crew during transit (separate from quarters passive heal)
             if (this.state.upgrades.includes('autodoc')) {
                 let healed = false;
                 this.state.crew.forEach(c => {
-                    if (c.status === 'INJURED' || c.status.indexOf('(-') > -1) {
+                    if (c.status === 'INJURED') {
                         c.status = 'HEALTHY';
+                        c.healCounter = 0;
                         healed = true;
                     }
                 });
                 if (healed) this.state.addLog("Autodoc: Crew injuries stabilized during transit.");
             }
 
-            // UPGRADE: Fuel Scoop
+            // UPGRADE: Fuel Scoop — BONUS energy on top of ambient collection for gas giants
             if (this.state.upgrades.includes('fuel_scoop') && (planet.type === 'GAS_GIANT' || planet.type === 'NEBULA')) {
-                const scoop = Math.floor(Math.random() * 5) + 5;
-                this.state.fuel = Math.min(100, this.state.fuel + scoop);
-                this.state.addLog(`Bussard Scoop: Harvested ${scoop} Fuel from atmosphere.`);
+                const scoop = Math.floor(Math.random() * 8) + 8; // 8-15 bonus
+                this.state.energy = Math.min(100, this.state.energy + scoop);
+                this.state.addLog(`Bussard Scoop: Harvested additional ${scoop} Energy from atmosphere.`);
+            }
+
+            // Dangerous planet stress: dangerLevel 2+ → +1 stress to a random crew member
+            if ((planet.dangerLevel || 0) >= 2) {
+                const living = this.state.crew.filter(c => c.status !== 'DEAD');
+                if (living.length > 0) {
+                    const victim = living[Math.floor(Math.random() * living.length)];
+                    victim.stress = Math.min(3, (victim.stress || 0) + 1);
+                    this.state.addLog(`${victim.name}: Unsettled by hostile readings.`);
+                }
+            }
+
+            // Sector hazards during warp — delegated to SECTOR_CONFIG
+            const warpConfig = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[this.state.currentSector] : null;
+            if (warpConfig && warpConfig.hazard && warpConfig.hazard.onWarp) {
+                warpConfig.hazard.onWarp(this.state);
+            }
+
+            // Process sedated/confined crew recovery
+            this.state.crew.forEach(c => {
+                if (c.tags && c.tags.includes('SEDATED') && c._sedatedUntilWarp !== undefined) {
+                    c._sedatedUntilWarp--;
+                    if (c._sedatedUntilWarp <= 0) {
+                        // Remove sedation
+                        c.tags = c.tags.filter(t => t !== 'SEDATED');
+                        delete c._sedatedUntilWarp;
+                        this.state.addLog(`${c.name} has recovered from sedation. Cleared for duty.`);
+                    } else {
+                        this.state.addLog(`${c.name} remains sedated. ${c._sedatedUntilWarp} warps until recovery.`);
+                    }
+                }
+            });
+
+            // Bark: crew reacts to entering orbit
+            if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                window.BarkSystem.checkPlanetBarks(this.state, planet);
+                // If no special bark fired, fire generic ENTER_ORBIT
+                setTimeout(() => window.BarkSystem.tryBark('ENTER_ORBIT', this.state, { planet }), 50);
+            }
+
+            // A.U.R.A. commentary on orbit entry
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('ENTER_ORBIT', this.state);
+                window.AuraSystem.checkAdversarialAction(this.state);
+
+                // Trigger any pending premonition effects
+                const premonitionResult = window.AuraSystem.triggerPremonition(this.state);
+                if (premonitionResult) {
+                    this.state.addLog(`[A.U.R.A.'s warning proved prophetic...]`);
+                }
+
+                // Maybe generate a new premonition for next action
+                window.AuraSystem.generatePremonition(this.state);
+            }
+
+            // Resource barks check
+            if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                setTimeout(() => window.BarkSystem.checkResourceBarks(this.state), 600);
             }
 
             setTimeout(() => {
@@ -230,26 +785,47 @@ class App {
     }
 
     handleRemoteScan(planet) {
+        // Bridge must be operational for remote scan
+        if (!this.state.isDeckOperational('bridge')) {
+            this.state.addLog("BRIDGE OFFLINE: Remote scanning unavailable.");
+            return;
+        }
         if (this.state.consumeEnergy(2)) {
             const data = this.state.sectorNodes.find(p => p.id === planet.id);
             if (data) {
                 data.remoteScanned = true;
 
-                // Randomly reveal 1-2 stats if not already done
-                // Randomly reveal 1-2 stats if not already done
-                if (!data.revealedStats || data.revealedStats.length === 0) {
-                    if (this.state.upgrades.includes('sensor_v2')) {
-                        data.revealedStats = ['gravity', 'temperature', 'atmosphere', 'dangerLevel'];
-                        this.state.addLog("Sensor Array: Detailed scan analysis complete.");
-                    } else {
-                        const count = Math.random() > 0.7 ? 2 : 1;
-                        const options = ['gravity', 'temperature', 'atmosphere'];
-                        const shuffled = options.sort(() => 0.5 - Math.random());
-                        data.revealedStats = shuffled.slice(0, count);
-                    }
+                // S3 INTERFERENCE hook — may corrupt scan data (can show false resource levels)
+                const scanConfig = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[this.state.currentSector] : null;
+                if (scanConfig && scanConfig.hazard && scanConfig.hazard.onScan) {
+                    scanConfig.hazard.onScan(data, this.state);
                 }
 
-                this.state.addLog(`Long-range sensors locked on ${planet.name}. Partial data retrieved.`);
+                // A.U.R.A. false scan override (adversarial action) — corrupts resource readings
+                if (this.state._auraFalseScan) {
+                    data._realResources = data._realResources || { ...data.resources };
+                    data.resources = {
+                        metals: Math.floor(Math.random() * 100),
+                        energy: Math.floor(Math.random() * 100)
+                    };
+                    data._scanCorrupted = true;
+                    this.state._auraFalseScan = false;
+                    this.state.addLog(`A.U.R.A.: "Scan complete. All readings nominal." [READINGS UNRELIABLE]`);
+                }
+
+                // Build signal summary for log
+                const signals = [];
+                if (data.metrics?.hasLife || ['VITAL', 'BIO_MASS', 'SYMBIOTE_WORLD', 'SINGING'].includes(data.type)) signals.push('BIO');
+                if (data.metrics?.hasTech || ['MECHA', 'TERRAFORMED', 'MIRROR'].includes(data.type)) signals.push('TECH');
+                if (data.tags?.includes('WRECKAGE') || data.tags?.includes('EXODUS_WRECK')) signals.push('WRECKAGE');
+                if (data.tags?.includes('FAILED_COLONY')) signals.push('COLONY');
+
+                const signalStr = signals.length > 0 ? signals.join(', ') : 'none';
+                const metalLevel = data.resources?.metals >= 70 ? 'HIGH' : (data.resources?.metals >= 40 ? 'MODERATE' : 'LOW');
+                const energyLevel = data.resources?.energy >= 70 ? 'HIGH' : (data.resources?.energy >= 40 ? 'MODERATE' : 'LOW');
+
+                this.state.addLog(`Long-range scan: ${planet.name}. Salvage: ${metalLevel}. Energy: ${energyLevel}. Signals: ${signalStr}.`);
+
                 // Force re-render of right panel
                 this.navView.handlePlanetSelect(data);
             }
@@ -257,48 +833,1396 @@ class App {
     }
 
     handleSectorJump() {
-        if (this.state.consumeEnergy(20)) {
-            this.state.addLog("Initiating Sector Jump...");
-            this.state.sectorNodes = PlanetGenerator.generateSector(this.state.currentSector + 1);
-            this.state.currentSector++;
-            this.state.lastVisitedSystem = null; // Clear history
-            this.renderNav();
-            this.state.addLog(`Sector ${this.state.currentSector} Generated.`);
+        let jumpCost = 20;
+        // Engineering damaged: sector jump cost doubled
+        if (!this.state.isDeckOperational('engineering')) {
+            jumpCost = 40;
         }
+        // Drive reinforcement discount (from Jaxon campfire event)
+        if (this.state._driveReinforced) {
+            const discount = Math.floor(jumpCost * 0.2); // 20% off
+            jumpCost -= discount;
+            this.state.addLog(`Drive reinforcement active: Jump cost reduced by ${discount} energy.`);
+            this.state._driveReinforced = false; // Single use
+        }
+        if (this.state.consumeEnergy(jumpCost)) {
+            this.state.addLog("Initiating Sector Jump...");
+
+            // Consume 1 ration (major action)
+            this.state.consumeRation();
+
+            // Passive stress recovery on sector jump (if quarters operational)
+            if (this.state.isDeckOperational('quarters')) {
+                this.state.crew.forEach(c => {
+                    if (c.status !== 'DEAD' && c.stress > 0) {
+                        c.stress--;
+                    }
+                });
+                this.state.addLog("Crew Quarters: Rest cycle complete. Stress levels reduced.");
+            }
+
+            // Bark: crew reacts to sector jump
+            if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                window.BarkSystem.tryBark('SECTOR_JUMP', this.state);
+            }
+
+            // A.U.R.A. sector jump commentary
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('SECTOR_JUMP', this.state);
+            }
+
+            // Show campfire event before generating new sector
+            this.showCampfireEvent(() => {
+                const nextSector = this.state.currentSector + 1;
+                this.state.sectorNodes = PlanetGenerator.generateSector(nextSector);
+                this.state.currentSector = nextSector;
+                this.state.lastVisitedSystem = null;
+
+                // Sector enter hazard (e.g., S3 ghost planets) — pass state for ghost planet logging
+                const enterConfig = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[nextSector] : null;
+                if (enterConfig && enterConfig.hazard && enterConfig.hazard.onSectorEnter) {
+                    enterConfig.hazard.onSectorEnter(this.state, this.state.sectorNodes);
+                }
+
+                this.renderNav();
+
+                // Sector name from config
+                const sectorName = enterConfig ? enterConfig.name : '';
+                this.state.addLog(`Sector ${nextSector} Generated.${sectorName ? ' — ' + sectorName : ''}`);
+
+                // Dispatch sector entered event for audio
+                window.dispatchEvent(new CustomEvent('sector-entered', { detail: { sector: nextSector } }));
+
+                // Special bark: entering Sector 5
+                if (nextSector === 5 && typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                    window.BarkSystem.tryBark('SECTOR_5_ENTRY', this.state);
+                }
+            });
+        }
+    }
+
+    showCampfireEvent(onComplete) {
+        // Find eligible campfire events for current sector transition
+        const fromSector = this.state.currentSector;
+        const toSector = fromSector + 1;
+
+        const eligible = (typeof CAMPFIRE_EVENTS !== 'undefined' ? CAMPFIRE_EVENTS : []).filter(e => {
+            if (fromSector < e.sectorRange[0] || fromSector > e.sectorRange[1]) return false;
+            if (e.condition && !e.condition(this.state)) return false;
+            return true;
+        });
+
+        if (eligible.length === 0) {
+            onComplete();
+            return;
+        }
+
+        // Pick one randomly from eligible
+        const event = eligible[Math.floor(Math.random() * eligible.length)];
+
+        // Sector names — pull from SECTOR_CONFIG or fallback
+        const SECTOR_NAMES = {};
+        if (typeof SECTOR_CONFIG !== 'undefined') {
+            for (let s = 1; s <= 5; s++) {
+                SECTOR_NAMES[s] = SECTOR_CONFIG[s] ? SECTOR_CONFIG[s].name : '???';
+            }
+        } else {
+            Object.assign(SECTOR_NAMES, { 1: 'THE GRAVEYARD', 2: 'THE DARK VOID', 3: 'THE SIGNAL', 4: 'THE GARDEN', 5: 'THE EVENT HORIZON' });
+        }
+
+        // Use narrative modal system if available for immersive experience
+        if (window.NarrativeModal) {
+            const sectorHeader = `[whisper]S${fromSector}: ${SECTOR_NAMES[fromSector] || '???'} → S${toSector}: ${SECTOR_NAMES[toSector] || '???'}[/whisper]`;
+            this.showNarrativeEncounter({
+                title: event.title,
+                speaker: 'NARRATOR',
+                context: `[highlight]${event.title}[/highlight]\n${sectorHeader}\n\n${event.context}`,
+                dialogue: event.dialogue,
+                choices: event.choices,
+                onChoiceMade: () => {
+                    onComplete();
+                }
+            });
+            return;
+        }
+
+        // Fallback to old modal system
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2500';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #4488ff; max-width: 650px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #001133, #002266); color: #4488ff; display: flex; justify-content: space-between;">
+                    <span>/// INTER-SECTOR DRIFT ///</span>
+                    <span style="opacity: 0.7;">S${fromSector}: ${SECTOR_NAMES[fromSector] || '???'} → S${toSector}: ${SECTOR_NAMES[toSector] || '???'}</span>
+                </div>
+                <div style="padding: 25px;">
+                    <div style="font-size: 1.1em; font-weight: bold; color: #4488ff; margin-bottom: 15px;">${event.title}</div>
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 20px; line-height: 1.6; font-style: italic;">
+                        ${event.context}
+                    </div>
+                    <div style="border-left: 2px solid #333; padding-left: 15px; margin-bottom: 20px;">
+                        ${event.dialogue.filter(d => {
+                            // Filter out dead crew members from dialogue
+                            if (d.speaker === 'A.U.R.A.') return true;
+                            const speakerMap = {
+                                'Eng. Jaxon': 'ENGINEER', 'Dr. Aris': 'MEDIC',
+                                'Spc. Vance': 'SECURITY', 'Tech Mira': 'SPECIALIST'
+                            };
+                            const tag = speakerMap[d.speaker];
+                            if (tag) {
+                                const member = this.state.crew.find(c => c.tags.includes(tag));
+                                return member && member.status !== 'DEAD';
+                            }
+                            if (d.speaker.startsWith('Cmdr.')) {
+                                const cmdr = this.state.crew.find(c => c.tags.includes('LEADER'));
+                                return cmdr && cmdr.status !== 'DEAD';
+                            }
+                            return true;
+                        }).map(d => {
+                            const colors = {
+                                'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+                                'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+                            };
+                            const portraits = {
+                                'Eng. Jaxon': 'M_2', 'Dr. Aris': 'F_3', 'Spc. Vance': 'M_4',
+                                'Tech Mira': 'F_5', 'A.U.R.A.': null
+                            };
+                            const color = colors[d.speaker] || '#ffffff';
+                            const portraitId = portraits[d.speaker];
+                            // Commander: find their portrait dynamically
+                            const cmdr = this.state.crew.find(c => c.tags.includes('LEADER'));
+                            const isCmdr = d.speaker.startsWith('Cmdr.');
+                            const pId = isCmdr ? (cmdr ? cmdr.portraitId : null) : portraitId;
+                            const speakerColor = isCmdr ? '#ffffff' : color;
+                            const portraitHtml = pId
+                                ? `<img src="assets/crew/${pId}.png" style="width:28px;height:28px;border-radius:50%;border:1px solid ${speakerColor};object-fit:cover;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                                : (d.speaker === 'A.U.R.A.' ? `<span style="display:inline-block;width:28px;height:28px;border-radius:50%;border:1px solid #00ff88;text-align:center;line-height:28px;font-size:12px;margin-right:6px;vertical-align:middle;background:#001a0a;">AI</span>` : '');
+                            return `<div style="margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px;">
+                                <div style="flex-shrink: 0; padding-top: 2px;">${portraitHtml}</div>
+                                <div>
+                                    <span style="color:${speakerColor}; font-weight: bold;">${d.speaker}:</span>
+                                    <span style="color:${speakerColor}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${event.choices.map((choice, idx) => `
+                            <button class="campfire-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid #4488ff; background: rgba(0,20,60,0.8);
+                                color: #4488ff; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">${choice.desc}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects
+        modal.querySelectorAll('.campfire-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(0,40,120,0.8)'; btn.style.borderColor = '#66aaff'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(0,20,60,0.8)'; btn.style.borderColor = '#4488ff'; };
+            btn.onclick = () => {
+                const choice = event.choices[parseInt(btn.dataset.idx)];
+                const resultMsg = choice.effect(this.state);
+                this.state.addLog(resultMsg);
+                this.state.emitUpdates();
+                modal.remove();
+                onComplete();
+            };
+        });
+    }
+
+    handleExodusAction() {
+        const planet = this.state.currentSystem;
+        if (!planet || !planet.tags || !planet.tags.includes('EXODUS_WRECK')) {
+            this.state.addLog("No Exodus wreck signal detected at this location.");
+            return;
+        }
+        if (planet.exodusInvestigated) {
+            this.state.addLog("Exodus wreck already investigated.");
+            return;
+        }
+
+        // Select encounter by weighted random
+        const encounters = (typeof EXODUS_ENCOUNTERS !== 'undefined') ? EXODUS_ENCOUNTERS : [];
+        if (encounters.length === 0) {
+            this.state.addLog("ERROR: Exodus encounter data unavailable.");
+            return;
+        }
+
+        const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = encounters[0];
+        for (const enc of encounters) {
+            roll -= enc.weight;
+            if (roll <= 0) { selected = enc; break; }
+        }
+
+        const shipName = selected.getShipName();
+        // Bark: crew reacts to Exodus wreck
+        if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+            window.BarkSystem.tryBark('EXODUS_FOUND', this.state, { planet });
+        }
+
+        this.state.addLog(`Exodus transponder locked. Deploying team to investigate...`);
+        this.state.consumeRation(); // Major action
+
+        // Mark as investigated immediately to prevent re-clicking
+        planet.exodusInvestigated = true;
+
+        // Use narrative modal system if available for immersive experience
+        if (window.NarrativeModal) {
+            this.showNarrativeEncounter({
+                title: selected.title,
+                speaker: 'NARRATOR',
+                context: `[highlight]${shipName}[/highlight]\n\n${selected.context(shipName)}`,
+                dialogue: selected.dialogue,
+                choices: selected.choices,
+                onChoiceMade: () => {
+                    this.orbitView.updateCommandDeck(planet);
+                }
+            });
+            return;
+        }
+
+        // Fallback to old modal system
+        this.showExodusModal(selected, shipName, planet);
+    }
+
+    showExodusModal(encounter, shipName, planet) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2500';
+
+        const portraits = {
+            'Eng. Jaxon': 'M_2', 'Dr. Aris': 'F_3', 'Spc. Vance': 'M_4',
+            'Tech Mira': 'F_5', 'A.U.R.A.': null
+        };
+        const colors = {
+            'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+            'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+        };
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #ff8800; max-width: 680px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #331a00, #663300); color: #ff8800; display: flex; justify-content: space-between;">
+                    <span>/// EXODUS WRECK: ${encounter.title} ///</span>
+                    <span style="opacity: 0.7;">${shipName}</span>
+                </div>
+                <div style="padding: 25px;">
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 20px; line-height: 1.6; font-style: italic;">
+                        ${encounter.context(shipName)}
+                    </div>
+                    <div style="border-left: 2px solid #663300; padding-left: 15px; margin-bottom: 20px;">
+                        ${encounter.dialogue.filter(d => {
+                            if (d.speaker === 'A.U.R.A.') return true;
+                            const speakerMap = {
+                                'Eng. Jaxon': 'ENGINEER', 'Dr. Aris': 'MEDIC',
+                                'Spc. Vance': 'SECURITY', 'Tech Mira': 'SPECIALIST'
+                            };
+                            const tag = speakerMap[d.speaker];
+                            if (tag) {
+                                const member = this.state.crew.find(c => c.tags.includes(tag));
+                                return member && member.status !== 'DEAD';
+                            }
+                            return true;
+                        }).map(d => {
+                            const color = colors[d.speaker] || '#ffffff';
+                            const pId = portraits[d.speaker];
+                            const portraitHtml = pId
+                                ? `<img src="assets/crew/${pId}.png" style="width:28px;height:28px;border-radius:50%;border:1px solid ${color};object-fit:cover;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                                : (d.speaker === 'A.U.R.A.' ? `<span style="display:inline-block;width:28px;height:28px;border-radius:50%;border:1px solid #00ff88;text-align:center;line-height:28px;font-size:12px;margin-right:6px;vertical-align:middle;background:#001a0a;">AI</span>` : '');
+                            return `<div style="margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px;">
+                                <div style="flex-shrink: 0; padding-top: 2px;">${portraitHtml}</div>
+                                <div>
+                                    <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                                    <span style="color:${color}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${encounter.choices.map((choice, idx) => `
+                            <button class="exodus-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid #ff8800; background: rgba(40,20,0,0.8);
+                                color: #ff8800; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">${choice.desc}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects and click handlers
+        modal.querySelectorAll('.exodus-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(80,40,0,0.8)'; btn.style.borderColor = '#ffaa33'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(40,20,0,0.8)'; btn.style.borderColor = '#ff8800'; };
+            btn.onclick = () => {
+                const choice = encounter.choices[parseInt(btn.dataset.idx)];
+                const resultMsg = choice.effect(this.state);
+                this.state.addLog(resultMsg);
+
+                // Mark as investigated
+                planet.exodusInvestigated = true;
+
+                this.state.emitUpdates();
+                modal.remove();
+
+                // Refresh command deck to show investigated state
+                this.orbitView.updateCommandDeck(planet);
+            };
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // FAILED COLONY ENCOUNTER — investigate FAILED_COLONY tag
+    // ═══════════════════════════════════════════════════════════════
+    handleFailedColonyAction() {
+        const planet = this.state.currentSystem;
+        if (!planet || !planet.tags || !planet.tags.includes('FAILED_COLONY')) {
+            this.state.addLog("No colony ruins detected at this location.");
+            return;
+        }
+        if (planet.colonyInvestigated) {
+            this.state.addLog("Colony ruins already investigated.");
+            return;
+        }
+
+        const encounters = (typeof FAILED_COLONY_ENCOUNTERS !== 'undefined') ? FAILED_COLONY_ENCOUNTERS : [];
+        if (encounters.length === 0) {
+            this.state.addLog("ERROR: Colony encounter data unavailable.");
+            return;
+        }
+
+        // Select by weight
+        const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = encounters[0];
+        for (const enc of encounters) {
+            roll -= enc.weight;
+            if (roll <= 0) { selected = enc; break; }
+        }
+
+        // Bark: crew reacts to colony site
+        if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+            window.BarkSystem.tryBark('COLONY_SITE_FOUND', this.state, { planet });
+        }
+
+        this.state.addLog(`Colony ruins detected. Deploying investigation team...`);
+        this.state.consumeRation();
+
+        // Mark as investigated immediately to prevent re-clicking
+        planet.colonyInvestigated = true;
+
+        // Use narrative modal system if available for immersive experience
+        if (window.NarrativeModal) {
+            this.showNarrativeEncounter({
+                title: selected.title,
+                speaker: 'NARRATOR',
+                context: `[highlight]COLONY RUINS: ${selected.title}[/highlight]\n\n${selected.context(planet.name)}`,
+                dialogue: selected.dialogue,
+                choices: selected.choices,
+                onChoiceMade: () => {
+                    this.orbitView.updateCommandDeck(planet);
+                }
+            });
+            return;
+        }
+
+        // Fallback to old modal system
+        this.showColonySiteModal(selected, planet);
+    }
+
+    showColonySiteModal(encounter, planet) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2500';
+
+        const portraits = {
+            'Eng. Jaxon': 'M_2', 'Dr. Aris': 'F_3', 'Spc. Vance': 'M_4',
+            'Tech Mira': 'F_5', 'A.U.R.A.': null
+        };
+        const colors = {
+            'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+            'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+        };
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #44aaff; max-width: 680px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #001133, #003366); color: #44aaff; display: flex; justify-content: space-between;">
+                    <span>/// COLONY RUINS: ${encounter.title} ///</span>
+                    <span style="opacity: 0.7;">${planet.name}</span>
+                </div>
+                <div style="padding: 25px;">
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 20px; line-height: 1.6; font-style: italic;">
+                        ${encounter.context(planet.name)}
+                    </div>
+                    <div style="border-left: 2px solid #003366; padding-left: 15px; margin-bottom: 20px;">
+                        ${encounter.dialogue.filter(d => {
+                            if (d.speaker === 'A.U.R.A.') return true;
+                            const speakerMap = {
+                                'Eng. Jaxon': 'ENGINEER', 'Dr. Aris': 'MEDIC',
+                                'Spc. Vance': 'SECURITY', 'Tech Mira': 'SPECIALIST'
+                            };
+                            const tag = speakerMap[d.speaker];
+                            if (tag) {
+                                const member = this.state.crew.find(c => c.tags.includes(tag));
+                                return member && member.status !== 'DEAD';
+                            }
+                            return true;
+                        }).map(d => {
+                            const color = colors[d.speaker] || '#ffffff';
+                            const pId = portraits[d.speaker];
+                            const portraitHtml = pId
+                                ? `<img src="assets/crew/${pId}.png" style="width:28px;height:28px;border-radius:50%;border:1px solid ${color};object-fit:cover;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                                : (d.speaker === 'A.U.R.A.' ? `<span style="display:inline-block;width:28px;height:28px;border-radius:50%;border:1px solid #00ff88;text-align:center;line-height:28px;font-size:12px;margin-right:6px;vertical-align:middle;background:#001a0a;">AI</span>` : '');
+                            return `<div style="margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px;">
+                                <div style="flex-shrink: 0; padding-top: 2px;">${portraitHtml}</div>
+                                <div>
+                                    <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                                    <span style="color:${color}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${encounter.choices.map((choice, idx) => `
+                            <button class="colony-site-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid #44aaff; background: rgba(0,20,60,0.8);
+                                color: #44aaff; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">${choice.desc}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('.colony-site-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(0,40,120,0.8)'; btn.style.borderColor = '#66ccff'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(0,20,60,0.8)'; btn.style.borderColor = '#44aaff'; };
+            btn.onclick = () => {
+                const choice = encounter.choices[parseInt(btn.dataset.idx)];
+                const resultMsg = choice.effect(this.state);
+                this.state.addLog(resultMsg);
+
+                planet.colonyInvestigated = true;
+
+                this.state.emitUpdates();
+                modal.remove();
+
+                this.orbitView.updateCommandDeck(planet);
+            };
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DERELICT ENCOUNTER — Non-Exodus ships (mining, military, alien)
+    // ═══════════════════════════════════════════════════════════════
+    handleDerelictAction() {
+        const planet = this.state.currentSystem;
+        if (!planet || !planet.tags || !planet.tags.includes('DERELICT')) {
+            this.state.addLog("No derelict signal detected at this location.");
+            return;
+        }
+        if (planet.derelictInvestigated) {
+            this.state.addLog("Derelict already investigated.");
+            return;
+        }
+
+        const encounters = (typeof DERELICT_ENCOUNTERS !== 'undefined') ? DERELICT_ENCOUNTERS : [];
+        if (encounters.length === 0) {
+            this.state.addLog("ERROR: Derelict encounter data unavailable.");
+            return;
+        }
+
+        // Select by weight
+        const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = encounters[0];
+        for (const enc of encounters) {
+            roll -= enc.weight;
+            if (roll <= 0) { selected = enc; break; }
+        }
+
+        const shipName = selected.getName();
+
+        this.state.addLog(`Derelict signal locked: ${shipName}. Deploying investigation team...`);
+        this.state.consumeRation();
+
+        // Use narrative modal system
+        if (window.NarrativeModal) {
+            this.showNarrativeEncounter({
+                title: selected.title,
+                speaker: 'NARRATOR',
+                context: `[highlight]${shipName}[/highlight]\n\n${selected.context(shipName)}`,
+                dialogue: selected.dialogue,
+                choices: selected.choices,
+                onChoiceMade: () => {
+                    planet.derelictInvestigated = true;
+                    this.orbitView.updateCommandDeck(planet);
+                }
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ANOMALY ENCOUNTER — Reality-breaking phenomena
+    // ═══════════════════════════════════════════════════════════════
+    handleAnomalyAction() {
+        const planet = this.state.currentSystem;
+        if (!planet || !planet.tags || !planet.tags.includes('ANOMALY')) {
+            this.state.addLog("No anomaly detected at this location.");
+            return;
+        }
+        if (planet.anomalyInvestigated) {
+            this.state.addLog("Anomaly already investigated.");
+            return;
+        }
+
+        const encounters = (typeof ANOMALY_ENCOUNTERS !== 'undefined') ? ANOMALY_ENCOUNTERS : [];
+        if (encounters.length === 0) {
+            this.state.addLog("ERROR: Anomaly encounter data unavailable.");
+            return;
+        }
+
+        // Select by weight
+        const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = encounters[0];
+        for (const enc of encounters) {
+            roll -= enc.weight;
+            if (roll <= 0) { selected = enc; break; }
+        }
+
+        // Bark: crew reacts to anomaly
+        if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+            window.BarkSystem.tryBark('ANOMALY_FOUND', this.state, { planet });
+        }
+
+        // A.U.R.A. commentary on anomaly discovery
+        if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+            window.AuraSystem.tryComment('ANOMALY_FOUND', this.state);
+        }
+
+        this.state.addLog(`ANOMALY CONTACT: ${selected.title}. Approach with caution...`);
+
+        // Use narrative modal system
+        if (window.NarrativeModal) {
+            this.showNarrativeEncounter({
+                title: selected.title,
+                speaker: 'NARRATOR',
+                context: `[warning]ANOMALY: ${selected.title}[/warning]\n\n${selected.context()}`,
+                dialogue: selected.dialogue,
+                choices: selected.choices,
+                onChoiceMade: () => {
+                    planet.anomalyInvestigated = true;
+                    this.orbitView.updateCommandDeck(planet);
+                }
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // THE WRONG PLACE — Special escape/accept handlers
+    // ═══════════════════════════════════════════════════════════════
+    handleWrongPlaceEscape() {
+        const livingCrew = this.state.crew.filter(c => c.status !== 'DEAD');
+
+        // Escaping THE WRONG PLACE costs everything but returns you
+        this.showNarrativeEncounter({
+            title: 'TEAR THROUGH REALITY',
+            speaker: 'NARRATOR',
+            context: `[warning]THE WRONG PLACE[/warning]
+
+You gather every scrap of energy. Every bit of salvage goes into the engines. The crew pushes themselves beyond breaking.
+
+A.U.R.A.'s voice crackles: "I have calculated a path. It is... improbable. But existence here is impossible. We must try."
+
+The ship screams. Reality screams louder. For a moment, you exist in two places at once.
+
+Then you're through.`,
+            dialogue: [
+                { speaker: 'A.U.R.A.', text: "Translation complete. We have returned to normal space. Location: unknown. But the stars... the stars are right again." }
+            ],
+            choices: [
+                {
+                    text: "We made it",
+                    desc: "Return to a random sector, but at great cost.",
+                    effect: (state) => {
+                        // Heavy cost
+                        state.energy = Math.max(10, state.energy - 50);
+                        state.salvage = Math.max(0, state.salvage - 30);
+
+                        // Crew trauma
+                        state.crew.forEach(c => {
+                            if (c.status !== 'DEAD') {
+                                c.stress = Math.min(3, (c.stress || 0) + 1);
+                                if (!c.tags.includes('WRONG_PLACE_SURVIVOR')) {
+                                    c.tags.push('WRONG_PLACE_SURVIVOR');
+                                }
+                            }
+                        });
+
+                        // Return to a random sector (prefer ahead)
+                        const targetSector = Math.min(6, Math.max(1, (state._previousSector || 1) + Math.floor(Math.random() * 2)));
+                        state.currentSector = targetSector;
+                        state.sectorNodes = PlanetGenerator.generateSector(targetSector);
+                        state._inWrongPlace = false;
+
+                        // Apply sector entry effects
+                        const config = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[targetSector] : null;
+                        if (config && config.hazard && config.hazard.onSectorEnter) {
+                            config.hazard.onSectorEnter(state, state.sectorNodes);
+                        }
+
+                        state.currentSystem = null;
+                        state.addLog("=== REALITY BREACH SUCCESSFUL ===");
+                        state.addLog(`Emerged in Sector ${targetSector}. The crew will never forget what they saw.`);
+
+                        return "You escaped THE WRONG PLACE. The memories remain. -50 Energy, -30 Salvage. All crew +1 Stress.";
+                    }
+                }
+            ],
+            onChoiceMade: () => {
+                // Update the sector display
+                const sectorNameEl = document.getElementById('sector-name');
+                if (sectorNameEl) {
+                    const SECTOR_NAMES = {
+                        1: 'THE GRAVEYARD', 2: 'THE DEEP', 3: 'THE INTERFERENCE',
+                        4: 'THE GARDEN', 5: 'THE EVENT HORIZON', 6: 'THE THRESHOLD'
+                    };
+                    sectorNameEl.textContent = `/// SECTOR ${this.state.currentSector}: ${SECTOR_NAMES[this.state.currentSector] || 'UNKNOWN'}`;
+                    sectorNameEl.style.color = 'var(--color-accent)';
+                    sectorNameEl.style.animation = 'none';
+                }
+                this.renderNav();
+            }
+        });
+    }
+
+    handleWrongPlaceAccept() {
+        // Accepting your fate in THE WRONG PLACE is a unique ending
+        this.showEndingScreen({
+            ending: 'WRONG_PLACE_ACCEPTED',
+            title: 'THE WRONG PLACE',
+            text: `You stop fighting.
+
+The engines go quiet. The lights dim. The crew gathers on the bridge and watches the impossible stars.
+
+A.U.R.A. speaks one last time: "I understand now. This place... it's not wrong. It's just different. Perhaps it was always waiting for us."
+
+One by one, you stop seeing the strangeness. The colors that shouldn't exist become beautiful. The geometry that hurts to perceive becomes... home.
+
+The Exodus-9 settles into orbit around a world that exists in no chart, in no dimension, in no time you've ever known.
+
+You step outside.
+
+The air shouldn't be breathable. You breathe it anyway.
+
+The ground shouldn't hold your weight. It holds you anyway.
+
+You build. You live. You forget what "normal" ever meant.
+
+Somewhere, somewhen, the universe continues without you.
+
+You don't miss it.
+
+You are exactly where you were always meant to be.
+
+You are home.`
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // LATE-GAME POIs — Lighthouse, Garden, Grave
+    // ═══════════════════════════════════════════════════════════════
+    handleLateGamePOI(poiType) {
+        const planet = this.state.currentSystem;
+        if (!planet || !planet.tags || !planet.tags.includes(poiType)) {
+            this.state.addLog(`No ${poiType.toLowerCase()} detected at this location.`);
+            return;
+        }
+
+        const investigatedKey = `${poiType.toLowerCase()}Investigated`;
+        if (planet[investigatedKey]) {
+            this.state.addLog(`${poiType} already investigated.`);
+            return;
+        }
+
+        const poi = (typeof LATE_GAME_POIS !== 'undefined') ? LATE_GAME_POIS[poiType] : null;
+        if (!poi) {
+            this.state.addLog(`ERROR: ${poiType} encounter data unavailable.`);
+            return;
+        }
+
+        this.state.addLog(`Approaching ${poi.name}...`);
+
+        // Show the POI encounter using narrative modal
+        this.showNarrativeEncounter({
+            title: poi.title,
+            speaker: 'NARRATOR',
+            context: poi.context(),
+            dialogue: poi.dialogue,
+            choices: poi.choices,
+            onChoiceMade: () => {
+                planet[investigatedKey] = true;
+                this.orbitView.updateCommandDeck(planet);
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // THE STRUCTURE — Endgame encounter at Sector 6
+    // ═══════════════════════════════════════════════════════════════
+    handleStructureAction() {
+        const planet = this.state.currentSystem;
+        if (!planet || !planet.isStructure) {
+            this.state.addLog("No structure detected at this location.");
+            return;
+        }
+        if (planet.structureApproached) {
+            this.state.addLog("You have already made your choice at THE STRUCTURE.");
+            return;
+        }
+
+        const encounter = (typeof STRUCTURE_ENCOUNTER !== 'undefined') ? STRUCTURE_ENCOUNTER : null;
+        if (!encounter) {
+            this.state.addLog("ERROR: Structure encounter data unavailable.");
+            return;
+        }
+
+        this.state.addLog("===================================");
+        this.state.addLog("APPROACHING THE STRUCTURE...");
+        this.state.addLog("===================================");
+
+        // Show the approach modal with cinematic text
+        this.showStructureModal(encounter, planet);
+    }
+
+    showStructureModal(encounter, planet) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '3000'; // Higher than other modals
+
+        const portraits = {
+            'Eng. Jaxon': 'M_2', 'Dr. Aris': 'F_3', 'Spc. Vance': 'M_4',
+            'Tech Mira': 'F_5', 'A.U.R.A.': null
+        };
+        const colors = {
+            'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+            'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+        };
+
+        // Filter dialogue for living crew
+        const filteredDialogue = encounter.approach.dialogue.filter(d => {
+            if (d.speaker === 'A.U.R.A.') return true;
+            const speakerMap = {
+                'Eng. Jaxon': 'ENGINEER', 'Dr. Aris': 'MEDIC',
+                'Spc. Vance': 'SECURITY', 'Tech Mira': 'SPECIALIST'
+            };
+            const tag = speakerMap[d.speaker];
+            if (tag) {
+                const member = this.state.crew.find(c => c.tags.includes(tag));
+                return member && member.status !== 'DEAD';
+            }
+            return true;
+        });
+
+        // Compact context - remove extra newlines
+        const contextText = encounter.approach.context().trim().replace(/\n\n+/g, ' ').replace(/\n/g, ' ');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #ffffff; max-width: 600px; max-height: 85vh; overflow-y: auto; background: linear-gradient(135deg, #0a0a15, #1a0a2a);">
+                <div class="modal-header" style="background: linear-gradient(90deg, #220044, #440088); color: #ffffff; display: flex; justify-content: space-between; font-size: 0.95em; padding: 8px 12px;">
+                    <span>/// THE STRUCTURE ///</span>
+                </div>
+                <div style="padding: 15px;">
+                    <div style="font-size: 0.85em; color: #ccccff; margin-bottom: 15px; line-height: 1.6; font-style: italic; border-left: 2px solid #8844ff; padding-left: 10px; max-height: 80px; overflow-y: auto;">
+                        ${contextText}
+                    </div>
+                    <div style="border-left: 2px solid #440088; padding-left: 10px; margin-bottom: 15px; max-height: 120px; overflow-y: auto;">
+                        ${filteredDialogue.slice(0, 3).map(d => {
+                            const color = colors[d.speaker] || '#ffffff';
+                            return `<div style="margin-bottom: 8px; font-size: 0.8em;">
+                                <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                                <span style="color:${color}; opacity: 0.85;"> "${d.text}"</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div style="padding-top: 10px; border-top: 1px solid #440088;">
+                        <div style="color: #8844ff; margin-bottom: 10px; font-weight: bold; font-size: 0.9em;">WHAT DO YOU DO?</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            ${encounter.choices.map((choice, idx) => `
+                                <button class="structure-choice" data-idx="${idx}" style="
+                                    padding: 8px 10px; text-align: left;
+                                    border: 1px solid #8844ff; background: rgba(30,10,50,0.9);
+                                    color: #ffffff; cursor: pointer; font-family: var(--font-mono);
+                                    transition: all 0.3s; border-radius: 3px; font-size: 0.8em;
+                                ">
+                                    <div style="font-weight: bold; color: #ccaaff;">${choice.text}</div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects and click handlers
+        modal.querySelectorAll('.structure-choice').forEach(btn => {
+            btn.onmouseenter = () => {
+                btn.style.background = 'rgba(60,20,100,0.9)';
+                btn.style.borderColor = '#aa66ff';
+                btn.style.transform = 'scale(1.02)';
+            };
+            btn.onmouseleave = () => {
+                btn.style.background = 'rgba(30,10,50,0.9)';
+                btn.style.borderColor = '#8844ff';
+                btn.style.transform = 'scale(1)';
+            };
+            btn.onclick = () => {
+                const choice = encounter.choices[parseInt(btn.dataset.idx)];
+                const result = choice.effect(this.state);
+
+                // Mark structure as approached
+                planet.structureApproached = true;
+
+                modal.remove();
+
+                // Show the ending
+                this.showEndingScreen(result);
+            };
+        });
+    }
+
+    showEndingScreen(result) {
+        // This is the GAME ENDING screen
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '4000';
+        modal.style.background = 'rgba(0,0,0,0.98)';
+
+        // Clean up the text - handle both pre-formatted and regular text
+        let cleanText = result.text || '';
+        // Trim leading/trailing whitespace from each line and the whole text
+        cleanText = cleanText.split('\n').map(line => line.trim()).join('\n').trim();
+        // Convert double newlines to paragraph breaks
+        cleanText = cleanText.replace(/\n\n+/g, '</p><p>');
+        // Convert remaining single newlines to breaks
+        cleanText = cleanText.replace(/\n/g, '<br>');
+        // Wrap in paragraph tags
+        cleanText = '<p>' + cleanText + '</p>';
+
+        modal.innerHTML = `
+            <div style="
+                max-width: 800px;
+                margin: 40px auto;
+                padding: 40px 50px;
+                background: linear-gradient(135deg, #0a0a15, #1a0a2a);
+                border: 2px solid #ffffff;
+                border-radius: 8px;
+                animation: fadeIn 2s ease-in;
+                max-height: 90vh;
+                overflow-y: auto;
+            ">
+                <div style="
+                    text-align: center;
+                    font-size: 1.8em;
+                    color: #ffffff;
+                    margin-bottom: 30px;
+                    text-transform: uppercase;
+                    letter-spacing: 6px;
+                    text-shadow: 0 0 30px rgba(255,255,255,0.5);
+                ">
+                    ${result.title}
+                </div>
+                <div class="ending-text" style="
+                    font-size: 1.05em;
+                    color: #cccccc;
+                    line-height: 1.9;
+                    text-align: left;
+                    font-style: italic;
+                    padding: 10px 20px;
+                    border-left: 3px solid #6644aa;
+                ">
+                    ${cleanText}
+                </div>
+                <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333;">
+                    <div style="color: #8866cc; font-size: 0.95em; margin-bottom: 20px; letter-spacing: 3px;">
+                        ENDING: ${result.ending || 'UNKNOWN'}
+                    </div>
+                    <button id="btn-new-game" style="
+                        padding: 15px 40px;
+                        border: 2px solid #4488ff;
+                        background: rgba(0,40,100,0.5);
+                        color: #4488ff;
+                        font-family: var(--font-mono);
+                        font-size: 1.1em;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                    ">
+                        BEGIN NEW EXODUS
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Add ending log
+        this.state.addLog("===================================");
+        this.state.addLog(`ENDING ACHIEVED: ${result.title}`);
+        this.state.addLog("===================================");
+        this.state.addLog("The journey of the Exodus-9 has concluded.");
+
+        // New game button
+        const newGameBtn = modal.querySelector('#btn-new-game');
+        newGameBtn.onmouseenter = () => {
+            newGameBtn.style.background = 'rgba(0,80,200,0.5)';
+            newGameBtn.style.borderColor = '#66aaff';
+        };
+        newGameBtn.onmouseleave = () => {
+            newGameBtn.style.background = 'rgba(0,40,100,0.5)';
+            newGameBtn.style.borderColor = '#4488ff';
+        };
+        newGameBtn.onclick = () => {
+            modal.remove();
+            // Reset the game
+            this.state.init();
+            this.state.addLog("/// NEW EXODUS INITIALIZED ///");
+            this.state.addLog("Humanity's hope rests with you once more.");
+
+            // Return to navigation view
+            this.switchToNavView();
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NARRATIVE ENCOUNTER — Uses new NarrativeModal for cinematic experience
+    // ═══════════════════════════════════════════════════════════════
+    showNarrativeEncounter(config) {
+        // config: { title, context, dialogue[], choices[], onChoiceMade, speaker? }
+        if (!window.NarrativeModal) {
+            console.warn('[NarrativeModal] Not loaded, falling back to alert');
+            alert(config.context);
+            return;
+        }
+
+        // Speaker map for NarrativeModal
+        const speakerMap = {
+            'Eng. Jaxon': 'JAXON',
+            'Dr. Aris': 'ARIS',
+            'Spc. Vance': 'VANCE',
+            'Tech Mira': 'MIRA',
+            'A.U.R.A.': 'AURA',
+            'Cmdr. Reyes': 'COMMANDER'
+        };
+
+        // Build the narrative sequence
+        const sequence = [];
+
+        // Add context as narrator
+        if (config.context) {
+            sequence.push({
+                speaker: config.speaker || 'NARRATOR',
+                text: config.context
+            });
+        }
+
+        // Add dialogue from living crew only
+        if (config.dialogue && config.dialogue.length > 0) {
+            const filteredDialogue = config.dialogue.filter(d => {
+                if (d.speaker === 'A.U.R.A.') return true;
+                const tagMap = {
+                    'Eng. Jaxon': 'ENGINEER', 'Dr. Aris': 'MEDIC',
+                    'Spc. Vance': 'SECURITY', 'Tech Mira': 'SPECIALIST'
+                };
+                const tag = tagMap[d.speaker];
+                if (tag) {
+                    const member = this.state.crew.find(c => c.tags.includes(tag));
+                    return member && member.status !== 'DEAD';
+                }
+                return true;
+            });
+
+            filteredDialogue.forEach(d => {
+                sequence.push({
+                    speaker: speakerMap[d.speaker] || 'UNKNOWN',
+                    text: `"${d.text}"`
+                });
+            });
+        }
+
+        // Build choices for NarrativeModal with dynamic disabling
+        const narrativeChoices = config.choices.map((choice, idx) => {
+            // Check if choice requires probe and probe is broken
+            const textLower = (choice.text || '').toLowerCase();
+            const descLower = (choice.desc || '').toLowerCase();
+            const requiresProbe = textLower.includes('probe') || descLower.includes('probe');
+            const probeDisabled = requiresProbe && this.state.probeIntegrity <= 0;
+
+            // Check if crew member is sedated and this involves them
+            let sedatedDisabled = false;
+            const sedatedCrew = this.state.crew.filter(c => c.tags && c.tags.includes('SEDATED'));
+            // Note: Sedated crew can't be sent on missions
+
+            return {
+                text: choice.text,
+                cost: probeDisabled ? '[PROBE DESTROYED] ' + choice.desc : choice.desc,
+                disabled: choice.disabled || probeDisabled || sedatedDisabled,
+                effect: () => {
+                    const resultMsg = choice.effect(this.state);
+                    this.state.addLog(resultMsg);
+                    if (config.onChoiceMade) config.onChoiceMade(idx, resultMsg);
+                    this.state.emitUpdates();
+                }
+            };
+        });
+
+        // Show the sequence
+        if (sequence.length > 1) {
+            window.NarrativeModal.showSequence(sequence, narrativeChoices);
+        } else if (sequence.length === 1) {
+            window.NarrativeModal.show({
+                speaker: sequence[0].speaker,
+                text: sequence[0].text,
+                choices: narrativeChoices
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // COLONY WARNING — S1/S2 warning before establishing colony
+    // ═══════════════════════════════════════════════════════════════
+    showColonyWarningModal(planet, onProceed) {
+        const config = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[this.state.currentSector] : null;
+        if (!config || !config.colonyWarning || planet._colonyWarningShown) {
+            onProceed();
+            return;
+        }
+        planet._colonyWarningShown = true;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2500';
+
+        const portraits = {
+            'Eng. Jaxon': 'M_2', 'Dr. Aris': 'F_3', 'Spc. Vance': 'M_4',
+            'Tech Mira': 'F_5', 'A.U.R.A.': null
+        };
+        const colors = {
+            'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+            'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+        };
+
+        // Crew warning lines based on who's alive
+        const warnings = [];
+        const living = this.state.crew.filter(c => c.status !== 'DEAD' && !c.tags.includes('LEADER'));
+        const jaxon = living.find(c => c.tags.includes('ENGINEER'));
+        const aris = living.find(c => c.tags.includes('MEDIC'));
+        const vance = living.find(c => c.tags.includes('SECURITY'));
+        const mira = living.find(c => c.tags.includes('SPECIALIST'));
+
+        if (vance) warnings.push({ speaker: 'Spc. Vance', text: "Commander, this sector is a graveyard. Colonizing here is suicide. We need to go deeper." });
+        if (aris) warnings.push({ speaker: 'Dr. Aris', text: "The environmental data doesn't support long-term survival. Please, we can do better." });
+        if (jaxon) warnings.push({ speaker: 'Eng. Jaxon', text: "The soil composition, the radiation levels — nothing here can sustain agriculture. This isn't the place." });
+        if (mira) warnings.push({ speaker: 'Tech Mira', text: "My models show colony failure within 18 months at these readings. The deeper sectors have better candidates." });
+        warnings.push({ speaker: 'A.U.R.A.', text: `Colony viability assessment: ${Math.floor(Math.random() * 8 + 2)}%. Recommend proceeding to Sector ${Math.min(5, this.state.currentSector + 1)}.` });
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #ff4444; max-width: 650px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #330000, #660000); color: #ff4444; display: flex; justify-content: space-between;">
+                    <span>/// COLONY WARNING ///</span>
+                    <span style="opacity: 0.7;">CREW ADVISORY</span>
+                </div>
+                <div style="padding: 25px;">
+                    <div style="font-size: 0.95em; color: #ff6666; margin-bottom: 20px; line-height: 1.6; font-weight: bold;">
+                        ⚠ Your crew is strongly advising against colonization in this sector.
+                    </div>
+                    <div style="border-left: 2px solid #660000; padding-left: 15px; margin-bottom: 20px;">
+                        ${warnings.map(d => {
+                            const color = colors[d.speaker] || '#ffffff';
+                            const pId = portraits[d.speaker];
+                            const portraitHtml = pId
+                                ? `<img src="assets/crew/${pId}.png" style="width:28px;height:28px;border-radius:50%;border:1px solid ${color};object-fit:cover;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                                : (d.speaker === 'A.U.R.A.' ? `<span style="display:inline-block;width:28px;height:28px;border-radius:50%;border:1px solid #00ff88;text-align:center;line-height:28px;font-size:12px;margin-right:6px;vertical-align:middle;background:#001a0a;">AI</span>` : '');
+                            return `<div style="margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px;">
+                                <div style="flex-shrink: 0; padding-top: 2px;">${portraitHtml}</div>
+                                <div>
+                                    <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                                    <span style="color:${color}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                        <button class="colony-warn-abort" style="
+                            padding: 12px 25px; border: 1px solid var(--color-primary);
+                            background: rgba(0,40,0,0.8); color: var(--color-primary);
+                            cursor: pointer; font-family: var(--font-mono); font-weight: bold;
+                        ">ABORT — Keep Moving</button>
+                        <button class="colony-warn-proceed" style="
+                            padding: 12px 25px; border: 1px solid #ff4444;
+                            background: rgba(60,0,0,0.8); color: #ff4444;
+                            cursor: pointer; font-family: var(--font-mono); font-weight: bold;
+                        ">PROCEED DESPITE WARNINGS</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('.colony-warn-abort').onclick = () => {
+            this.state.addLog("Colony attempt aborted. Crew advisory accepted.");
+            modal.remove();
+        };
+        modal.querySelector('.colony-warn-proceed').onclick = () => {
+            this.state.addLog("Colony warning overridden. Proceeding with colonization attempt...");
+            // Ethics hit for ignoring crew
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.adjustEthics(-1, 'Ignored colony warning', this.state);
+            }
+            modal.remove();
+            onProceed();
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // A.U.R.A. VENT WARNING — response modal
+    // ═══════════════════════════════════════════════════════════════
+    showAuraVentModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '3000';
+
+        const jaxonAlive = this.state.crew.some(c => c.tags.includes('ENGINEER') && c.status !== 'DEAD');
+        const hasTechFragment = this.state.cargo.some(i => i.id === 'tech_fragment' || i.id === 'TECH_FRAGMENT');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #ff4444; max-width: 550px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #330000, #660000); color: #ff4444;">
+                    /// ATMOSPHERE ALERT ///
+                </div>
+                <div style="padding: 25px;">
+                    <div style="font-size: 0.95em; color: #ff6666; margin-bottom: 20px; line-height: 1.6;">
+                        A.U.R.A. is venting atmosphere from crew quarters. Respond immediately!
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${jaxonAlive ? `
+                        <button class="vent-choice" data-action="jaxon" style="
+                            padding: 12px 15px; text-align: left;
+                            border: 1px solid #f0a030; background: rgba(40,20,0,0.8);
+                            color: #f0a030; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold;">Jaxon: "I can override her!"</div>
+                            <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">Engineer override — resets A.U.R.A. to neutral</div>
+                        </button>` : ''}
+                        ${hasTechFragment ? `
+                        <button class="vent-choice" data-action="tech" style="
+                            padding: 12px 15px; text-align: left;
+                            border: 1px solid #d070ff; background: rgba(40,0,40,0.8);
+                            color: #d070ff; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold;">Use Tech Fragment</div>
+                            <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">Foreign code shifts A.U.R.A.'s ethics (+3)</div>
+                        </button>` : ''}
+                        <button class="vent-choice" data-action="accept" style="
+                            padding: 12px 15px; text-align: left;
+                            border: 1px solid #ff4444; background: rgba(60,0,0,0.8);
+                            color: #ff4444; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold;">Accept Consequences</div>
+                            <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">1 crew member injured by oxygen deprivation</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('.vent-choice').forEach(btn => {
+            btn.onclick = () => {
+                const action = btn.dataset.action;
+                if (action === 'jaxon' && typeof AuraSystem !== 'undefined') {
+                    window.AuraSystem.jaxonOverride(this.state);
+                } else if (action === 'tech' && typeof AuraSystem !== 'undefined') {
+                    // Remove tech fragment from cargo
+                    const idx = this.state.cargo.findIndex(i => i.id === 'tech_fragment' || i.id === 'TECH_FRAGMENT');
+                    if (idx !== -1) this.state.cargo.splice(idx, 1);
+                    window.AuraSystem.applyTechFragment(this.state);
+                } else if (action === 'accept') {
+                    // Injure a random living crew member
+                    const living = this.state.crew.filter(c => c.status === 'HEALTHY');
+                    if (living.length > 0) {
+                        const victim = living[Math.floor(Math.random() * living.length)];
+                        victim.status = 'INJURED';
+                        this.state.addLog(`${victim.name} suffered oxygen deprivation during the vent. Status: INJURED.`);
+                    }
+                }
+                this.state.emitUpdates();
+                modal.remove();
+            };
+        });
     }
 
     handleScanAction() {
-        if (this.state.consumeEnergy(2)) {
-            this.state.addLog("Deep Scan initiated...");
-            this.state.currentSystem.scanned = true;
-            this.state.addLog("Detailed surface analysis complete. Resource data available.");
-            this.orbitView.updateCommandDeck(this.state.currentSystem);
-            // Also update the left panel data if possible, but for now just command deck prevents reset
-            this.renderOrbit(); // ACTUALLY: We need to re-render to show the new "Environment Readings" on the left.
-            // To fix the animation reset, we would need to separate the Planet Visual into its own component that doesn't re-render.
-            // For now, let's fix the BUTTON functionality first. 
-        }
-    }
+        const planet = this.state.currentSystem;
 
-    handleProbeAction() {
-        // 1. Fabricate if destroyed
-        if (this.state.probeIntegrity <= 0) {
-            if (this.state.metals >= 50) {
-                this.state.metals -= 50;
-                this.state.probeIntegrity = 100;
-                this.state.addLog("Probe Fabricated. Systems Operational.");
+        // Special handling for THE STRUCTURE - scanning it is... different
+        if (planet && planet.isStructure) {
+            if (this.state.consumeEnergy(2)) {
+                this.state.addLog("Deep Scan initiated...");
+                this.state.addLog("=== SCAN ERROR ===");
+                this.state.addLog("Mass: [OVERFLOW - VALUE EXCEEDS SENSOR RANGE]");
+                this.state.addLog("Composition: [NULL - MATERIAL UNKNOWN]");
+                this.state.addLog("Age: [ERROR - NEGATIVE VALUE DETECTED]");
+                this.state.addLog("Energy readings: [∞]");
+                this.state.addLog("A.U.R.A.: \"Commander, the scan returns impossible values. It's not that we can't read it — it's that the readings don't correspond to anything in physics.\"");
+                this.state.addLog("The probe sent a burst of static before going silent. Its signal traces to a location that doesn't exist.");
+
+                // Probe takes damage from scanning THE STRUCTURE
+                if (this.state.probeIntegrity > 0) {
+                    this.state.probeIntegrity = Math.max(0, this.state.probeIntegrity - 30);
+                    if (this.state.probeIntegrity <= 0) {
+                        this.state.addLog("PROBE STATUS: DESTROYED. It didn't break — it simply ceased to be.");
+                    } else {
+                        this.state.addLog(`PROBE STATUS: Integrity at ${this.state.probeIntegrity}%. Something is wrong with its memory banks.`);
+                    }
+                }
+
+                planet.scanned = true;
                 this.state.emitUpdates();
-                // this.renderOrbit(); // CAUSES RESET
-                this.orbitView.updateCommandDeck(this.state.currentSystem);
-            } else {
-                this.state.addLog("Insufficient Metals to fabricate Probe.");
+                this.renderOrbit();
             }
             return;
         }
 
-        // 2. Launch Sequence
+        if (this.state.consumeEnergy(2)) {
+            this.state.addLog("Deep Scan initiated...");
+            planet.scanned = true;
+
+            // S3+ deep scan hook — corrects corrupted data, reveals hidden tags
+            const deepScanConfig = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[this.state.currentSector] : null;
+            if (deepScanConfig && deepScanConfig.hazard && deepScanConfig.hazard.onDeepScan) {
+                deepScanConfig.hazard.onDeepScan(planet);
+            }
+
+            // Check if PREDATORY was just revealed
+            if (planet.tags && planet.tags.includes('PREDATORY')) {
+                this.state.addLog("⚠ WARNING: PREDATORY ecosystem detected! Surface organisms exhibit coordinated hunting behavior.");
+                this.state.addLog("A.U.R.A.: \"Deep scan reveals aggressive bio-signatures. This paradise has teeth.\"");
+            }
+
+            this.state.addLog("Detailed surface analysis complete. Resource data available.");
+
+            // Bark: crew reacts to scan results
+            if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                window.BarkSystem.tryBark('AFTER_SCAN', this.state, { planet });
+            }
+
+            // A.U.R.A. scan commentary
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('SCAN_COMPLETE', this.state);
+
+                // Additional commentary for high-viability colony sites
+                const colonyTypes = ['EDEN', 'VITAL', 'TERRAFORMED', 'OCEANIC'];
+                if (colonyTypes.includes(planet.type)) {
+                    setTimeout(() => {
+                        window.AuraSystem.tryComment('COLONY_SITE', this.state);
+                    }, 600);
+                }
+
+                // Discovery commentary for anomalies or unusual findings
+                if (planet.tags && (planet.tags.includes('ANOMALY') || planet.tags.includes('EXODUS_WRECK'))) {
+                    setTimeout(() => {
+                        window.AuraSystem.tryComment('DISCOVERY', this.state);
+                    }, 400);
+                }
+            }
+
+            this.orbitView.updateCommandDeck(this.state.currentSystem);
+            this.renderOrbit();
+        }
+    }
+
+    handleProbeAction() {
         const planet = this.state.currentSystem;
+
+        // THE STRUCTURE — Probe is instantly destroyed
+        if (planet && planet.type === 'STRUCTURE') {
+            if (this.state.probeIntegrity <= 0) {
+                this.state.addLog("No probe available. Perhaps that is fortunate.");
+                return;
+            }
+            this.state.probeIntegrity = 0;
+            this.state.addLog("Probe launched toward THE STRUCTURE...");
+            this.state.addLog("...");
+            this.state.addLog("Signal lost instantly. No telemetry. No wreckage. The probe simply... ceased.");
+            this.state.addLog("A.U.R.A.: 'The probe did not crash. It was... unmade. I advise against further attempts.'");
+            this.state.emitUpdates();
+            this.orbitView.updateCommandDeck(planet);
+            return;
+        }
+
+        // 1. Fabricate if destroyed
+        if (this.state.probeIntegrity <= 0) {
+            // Engineering must be operational to fabricate
+            if (!this.state.isDeckOperational('engineering')) {
+                this.state.addLog("ENGINEERING OFFLINE: Probe fabrication unavailable.");
+                return;
+            }
+            if (this.state.salvage >= 50) {
+                this.state.salvage -= 50;
+                this.state.probeIntegrity = 100;
+                this.state.addLog("Probe Fabricated. Systems Operational. (-50 Salvage)");
+                this.state.emitUpdates();
+                this.orbitView.updateCommandDeck(this.state.currentSystem);
+            } else {
+                this.state.addLog("Insufficient Salvage to fabricate Probe.");
+            }
+            return;
+        }
+
+        // 2. Launch Sequence (planet already declared at top of function)
         this.state.addLog(`Probe launched to ${planet.name} surface...`);
+
+        // Bark: crew reacts to probe deploy
+        if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+            window.BarkSystem.tryBark('PROBE_DEPLOY', this.state, { planet });
+        }
+
+        // A.U.R.A. commentary on probe launch
+        if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+            window.AuraSystem.tryComment('PROBE_LAUNCH', this.state);
+        }
 
         // Use new System for Logic
         const result = ProbeSystem.performProbe(planet, this.state.probeIntegrity);
@@ -311,11 +2235,11 @@ class App {
                 const item = { ...result.reward.data, acquiredAt: planet.name };
                 this.state.cargo.push(item);
             } else if (result.reward.type === 'RESOURCE') {
-                if (result.reward.resource === 'metals') {
-                    const old = this.state.metals;
-                    this.state.metals = Math.min(this.state.maxMetals, this.state.metals + result.reward.amount);
-                    if (this.state.metals === this.state.maxMetals && old < this.state.maxMetals) {
-                        this.state.addLog("STORAGE WARNING: Metal capacity reached!");
+                if (result.reward.resource === 'metals' || result.reward.resource === 'salvage') {
+                    const old = this.state.salvage;
+                    this.state.salvage = Math.min(this.state.maxSalvage, this.state.salvage + result.reward.amount);
+                    if (this.state.salvage === this.state.maxSalvage && old < this.state.maxSalvage) {
+                        this.state.addLog("STORAGE WARNING: Salvage capacity reached!");
                     }
                 }
                 if (result.reward.resource === 'energy') this.state.energy = Math.min(100, this.state.energy + result.reward.amount);
@@ -325,6 +2249,98 @@ class App {
         this.state.addLog(result.message);
         this.state.emitUpdates();
         this.orbitView.updateCommandDeck(planet);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // REMOTE PROBE — Launch probe to a scanned planet from nav map
+    // ═══════════════════════════════════════════════════════════════
+    handleRemoteProbe(targetPlanet) {
+        if (!targetPlanet) {
+            this.state.addLog("No target selected for remote probe.");
+            return;
+        }
+
+        // Must be scanned to target
+        if (!targetPlanet.remoteScanned && !targetPlanet.scanned) {
+            this.state.addLog("Target must be scanned before remote probe deployment.");
+            return;
+        }
+
+        // Can't probe current location (use normal probe action)
+        if (this.state.currentSystem && this.state.currentSystem.id === targetPlanet.id) {
+            this.state.addLog("Already in orbit. Use standard probe deployment.");
+            return;
+        }
+
+        // Check probe integrity
+        if (this.state.probeIntegrity <= 0) {
+            // Try to fabricate
+            if (!this.state.isDeckOperational('engineering')) {
+                this.state.addLog("ENGINEERING OFFLINE: Probe fabrication unavailable.");
+                return;
+            }
+            if (this.state.salvage >= 50) {
+                this.state.salvage -= 50;
+                this.state.probeIntegrity = 100;
+                this.state.addLog("Probe Fabricated. Systems Operational. (-50 Salvage)");
+            } else {
+                this.state.addLog("Insufficient Salvage to fabricate Probe. (50 required)");
+                return;
+            }
+        }
+
+        // Remote probe costs additional energy (travel cost penalty)
+        const remoteCost = Math.floor(targetPlanet.fuelCost * 0.3); // 30% of warp cost
+        if (!this.state.consumeEnergy(remoteCost)) {
+            this.state.addLog(`Insufficient energy for remote probe. (${remoteCost} required)`);
+            return;
+        }
+
+        this.state.addLog(`Launching long-range probe to ${targetPlanet.name}... (-${remoteCost} Energy)`);
+
+        // Bark: crew reacts to remote probe
+        if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+            const mira = this.state.crew.find(c => c.personality === 'CURIOUS' && c.status !== 'DEAD');
+            if (mira) {
+                setTimeout(() => this.state.addLog(`${mira.name}: "Telemetry uplink established. This is exciting — remote sampling!"`), 400);
+            }
+        }
+
+        // Perform probe with penalty for remote operation (increased damage)
+        const result = ProbeSystem.performProbe(targetPlanet, this.state.probeIntegrity);
+
+        // Remote probe takes +15% hull damage due to extended operation
+        const remoteDamage = Math.floor(result.integrityLoss * 1.15);
+
+        // Apply Results
+        this.state.probeIntegrity = Math.max(0, this.state.probeIntegrity - remoteDamage);
+
+        if (result.reward) {
+            if (result.reward.type === 'ITEM') {
+                const item = { ...result.reward.data, acquiredAt: `${targetPlanet.name} (Remote)` };
+                this.state.cargo.push(item);
+            } else if (result.reward.type === 'RESOURCE') {
+                if (result.reward.resource === 'metals' || result.reward.resource === 'salvage') {
+                    const old = this.state.salvage;
+                    this.state.salvage = Math.min(this.state.maxSalvage, this.state.salvage + result.reward.amount);
+                    if (this.state.salvage === this.state.maxSalvage && old < this.state.maxSalvage) {
+                        this.state.addLog("STORAGE WARNING: Salvage capacity reached!");
+                    }
+                }
+                if (result.reward.resource === 'energy') {
+                    this.state.energy = Math.min(100, this.state.energy + result.reward.amount);
+                }
+            }
+        }
+
+        // Modify message to indicate remote operation
+        const remoteMsg = result.message.replace('Probe returned', 'Remote probe returned');
+        this.state.addLog(remoteMsg);
+
+        this.state.emitUpdates();
+
+        // Refresh the nav view tactical panel
+        this.navView.handlePlanetSelect(targetPlanet);
     }
 
     getProbeItem(planet) {
@@ -342,37 +2358,120 @@ class App {
         }
 
         // Fallback if no specific pool match or pool empty
-        if (pool.length === 0) pool = Object.values(ITEMS);
+        // Exclude Exodus-exclusive items (human supplies only found in derelict wrecks)
+        const exodusOnly = ['food_pack', 'chocolate', 'holotape'];
+        if (pool.length === 0) pool = Object.values(ITEMS).filter(i => !exodusOnly.includes(i.id));
 
         // Return random item from pool
         const template = pool[Math.floor(Math.random() * pool.length)];
         return { ...template, acquiredAt: planet.name };
     }
 
-    handleEvaAction() {
-        const healthyCrew = this.state.crew.filter(c => c.status === 'HEALTHY');
+    selectEvaTeam() {
+        // Priority: SECURITY > ENGINEER > SPECIALIST > MEDIC
+        const priority = ['SECURITY', 'ENGINEER', 'SPECIALIST', 'MEDIC'];
+        const eligible = this.state.crew.filter(c => c.status === 'HEALTHY' && !c.tags.includes('LEADER'));
+        const team = [];
+        for (const role of priority) {
+            if (team.length >= 2) break;
+            const member = eligible.find(c => c.tags.includes(role) && !team.includes(c));
+            if (member) team.push(member);
+        }
+        // Fill remaining slots from any eligible crew not yet selected
+        for (const c of eligible) {
+            if (team.length >= 2) break;
+            if (!team.includes(c)) team.push(c);
+        }
+        return team;
+    }
 
-        // 1. Check Requirements
-        if (healthyCrew.length < 2) {
-            this.state.addLog("MISSION ABORTED: Minimum 2 Healthy Crew required for EVA.");
+    handleEvaAction() {
+        const planet = this.state.currentSystem;
+
+        // THE STRUCTURE — Cannot EVA on this cosmic entity
+        if (planet && planet.type === 'STRUCTURE') {
+            this.state.addLog("A.U.R.A.: 'EVA is not possible. THE STRUCTURE has no surface in any conventional sense.'");
+            this.state.addLog("A.U.R.A.: 'To interact with it, you must... approach it. Directly.'");
             return;
         }
 
-        if (this.state.consumeEnergy(5)) {
+        // THE WRONG PLACE — EVA is extremely dangerous
+        if (planet && planet._isWrongPlace) {
+            this.state.addLog("A.U.R.A.: 'WARNING: EVA in this location is inadvisable. Space itself is... wrong here.'");
+            // Allow but add extra danger warning
+        }
+
+        // Commander stays on the bridge — only non-LEADER crew go on EVA
+        const evaCrew = this.state.crew.filter(c => c.status === 'HEALTHY' && !c.tags.includes('LEADER'));
+        const livingCrew = this.state.crew.filter(c => c.status !== 'DEAD');
+
+        // BLEEDING_HEART (Aris stress trait): Refuses EVA unless ALL living crew are healthy
+        if (this.state.hasActiveTrait('BLEEDING_HEART')) {
+            const injured = livingCrew.filter(c => c.status === 'INJURED');
+            if (injured.length > 0) {
+                this.state.addLog(`Dr. Aris: "Absolutely not. ${injured[0].name} needs treatment first. No one goes out there."`);
+                return;
+            }
+        }
+
+        // 1. Check Requirements (need 2 EVA-eligible crew — Commander stays on bridge)
+        if (evaCrew.length < 2) {
+            this.state.addLog("MISSION ABORTED: Minimum 2 Healthy Crew required for EVA. Commander remains on bridge.");
+            return;
+        }
+
+        // Select 2-person EVA team by priority
+        const evaTeam = this.selectEvaTeam();
+
+        // OBSESSED (Mira stress 3): EVA costs double energy and double rations
+        const isObsessed = this.state.hasActiveTrait('OBSESSED');
+        const evaCost = isObsessed ? 10 : 5;
+
+        if (this.state.consumeEnergy(evaCost)) {
             const planet = this.state.currentSystem;
 
-            // 2. Select Event
-            // Prioritize specific events, fallback to generic
-            let potentialEvents = EVENTS.filter(e => e.trigger(planet));
-            if (potentialEvents.length === 0) potentialEvents = [EVENTS[EVENTS.length - 1]]; // Should not happen due to fallback, but safe
+            // Bark: crew reacts before EVA
+            if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                window.BarkSystem.tryBark('BEFORE_EVA', this.state, { planet });
+            }
 
-            // Bias towards first matches (more specific)
-            const selectedEvent = potentialEvents[0];
+            // Log the EVA team
+            this.state.addLog(`EVA team deployed: ${evaTeam[0].name} and ${evaTeam[1].name}.`);
+
+            // A.U.R.A. commentary on EVA
+            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('EVA_DEPLOY', this.state);
+            }
+
+            // Consume rations (major action — double if obsessed)
+            this.state.consumeRation();
+            if (isObsessed) {
+                this.state.consumeRation();
+                this.state.addLog("Mira: Extended EVA window. Additional rations consumed.");
+            }
+
+            // Store EVA team for resolveEvaOutcome
+            this.currentEvaTeam = evaTeam;
+
+            // Special EDEN EVA — paradise world, unique peaceful encounter
+            if (planet.type === 'EDEN') {
+                this.showEdenEvaModal(planet);
+                return;
+            }
+
+            // 2. Select Event
+            let potentialEvents = EVENTS.filter(e => e.trigger(planet));
+            if (potentialEvents.length === 0) potentialEvents = [EVENTS[EVENTS.length - 1]];
+
+            // Prefer type-specific events over the generic fallback
+            const specificEvents = potentialEvents.filter(e => e.id !== 'DISTRESS_BEACON');
+            const selectedEvent = specificEvents.length > 0
+                ? specificEvents[Math.floor(Math.random() * specificEvents.length)]
+                : potentialEvents[potentialEvents.length - 1];
 
             this.showEventModal(selectedEvent, planet);
-            planet.hasEva = true; // Mark as done
-            // this.renderOrbit(); // Removed to prevent reset
-            this.orbitView.updateCommandDeck(planet); // Update buttons only
+            planet.hasEva = true;
+            this.orbitView.updateCommandDeck(planet);
         }
     }
 
@@ -383,12 +2482,19 @@ class App {
 
         const riskBase = (planet.dangerLevel || 0) * 5 + 5; // Base risk 5% to 30%
 
+        // Stress trait checks
+        const isParanoid = this.state.hasActiveTrait('PARANOID');
+        const isReckless = this.state.hasActiveTrait('RECKLESS');
+        const recklessBlocksSafe = isReckless && Math.random() > 0.5; // 50% chance to block safe option
+
         modal.innerHTML = `
             <div class="modal-content" style="border-color: var(--color-accent);">
                 <div class="modal-header" style="color: var(--color-accent);">/// EVA MISSION: ${event.title} ///</div>
                 <div style="padding: 20px; text-align: center;">
                     <p style="margin-bottom: 20px; font-style: italic;">"${event.desc}"</p>
-                    
+                    ${isParanoid ? '<p style="font-size: 0.8em; color: #ff6666; margin-bottom: 10px;">Vance: "I\'m not risking anyone on something that dangerous."</p>' : ''}
+                    ${recklessBlocksSafe ? '<p style="font-size: 0.8em; color: #ffaa00; margin-bottom: 10px;">Mira: "The safe option gets us nothing. I\'m going in."</p>' : ''}
+
                     <div style="display: flex; gap: 20px; justify-content: center;">
                         ${event.choices.map((choice, idx) => {
             const totalRisk = riskBase + choice.riskMod;
@@ -400,19 +2506,28 @@ class App {
             else if (totalRisk < 60) { riskLabel = "HIGH"; riskColor = "#FFA500"; }
             else { riskLabel = "EXTREME"; riskColor = "#FF0000"; }
 
+            // PARANOID: disable high-risk choices (riskMod >= 30)
+            const paranoidBlocked = isParanoid && choice.riskMod >= 30;
+            // RECKLESS: disable safe choices (riskMod === 0) 50% of the time
+            const recklessBlocked = recklessBlocksSafe && choice.riskMod === 0;
+            const isDisabled = paranoidBlocked || recklessBlocked;
+            const disabledReason = paranoidBlocked ? 'VANCE REFUSES' : (recklessBlocked ? 'MIRA OVERRIDES' : '');
+
             return `
                             <button class="choice-btn" data-idx="${idx}" style="
-                                padding: 15px; 
-                                border: 1px solid var(--color-primary); 
-                                background: rgba(0,0,0,0.8); 
-                                color: var(--color-primary); 
-                                cursor: pointer; 
+                                padding: 15px;
+                                border: 1px solid ${isDisabled ? '#555' : 'var(--color-primary)'};
+                                background: ${isDisabled ? 'rgba(30,0,0,0.8)' : 'rgba(0,0,0,0.8)'};
+                                color: ${isDisabled ? '#666' : 'var(--color-primary)'};
+                                cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
                                 flex: 1;
                                 font-family: var(--font-mono);
                                 transition: all 0.2s;
-                            ">
+                                ${isDisabled ? 'pointer-events: none;' : ''}
+                            " ${isDisabled ? 'disabled' : ''}>
                                 <div>${choice.text}</div>
                                 <div style="font-size: 0.8em; margin-top: 5px; color: ${riskColor}">RISK ASSESSMENT: ${riskLabel}</div>
+                                ${isDisabled ? `<div style="font-size: 0.7em; margin-top: 5px; color: #ff4444;">[${disabledReason}]</div>` : ''}
                             </button>
                         `}).join('')}
                     </div>
@@ -422,7 +2537,7 @@ class App {
 
         document.body.appendChild(modal);
 
-        modal.querySelectorAll('.choice-btn').forEach(btn => {
+        modal.querySelectorAll('.choice-btn:not([disabled])').forEach(btn => {
             btn.addEventListener('click', () => {
                 const choice = event.choices[btn.dataset.idx];
                 this.resolveEvaOutcome(choice, riskBase);
@@ -442,36 +2557,72 @@ class App {
         const roll = Math.random() * 100;
         let logMsg = "";
 
-        // 1. Hazard Check
-        if (roll < totalRisk) {
-            // INJURY or DEATH
+        // 1. Hazard Check — only EVA team members (2 crew) can be hit
+        const evaTeam = this.currentEvaTeam || [];
+        if (roll < totalRisk && evaTeam.length > 0) {
+            // INJURY or DEATH — pick randomly from the 2-person EVA team
             const severity = Math.random() * 100;
-            const targetCrew = this.state.crew.filter(c => c.status === 'HEALTHY')[0]; // Pick first available
+            const targetCrew = evaTeam[Math.floor(Math.random() * evaTeam.length)];
 
             if (severity < 10 || totalRisk > 40) { // 10% chance of death on hit, or if risk was super high
                 targetCrew.status = 'DEAD';
                 logMsg = `CATASTROPHE: ${targetCrew.name} KIA during operation. `;
+                window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: targetCrew } }));
             } else {
                 targetCrew.status = 'INJURED';
                 logMsg = `INCIDENT: ${targetCrew.name} sustained heavy injuries. `;
+                window.dispatchEvent(new CustomEvent('crew-injury', { detail: { crew: targetCrew } }));
+            }
+            // Stress: EVA casualty witnessed — +1 stress to all living crew
+            this.state.crew.forEach(c => {
+                if (c.status !== 'DEAD') {
+                    c.stress = Math.min(3, (c.stress || 0) + 1);
+                }
+            });
+            logMsg += "Crew morale shaken. ";
+
+            // Bark: crew reacts to casualty
+            if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                if (targetCrew.status === 'DEAD') {
+                    window.BarkSystem.tryBark('CREW_DEATH', this.state, { crew: targetCrew });
+                } else {
+                    window.BarkSystem.tryBark('CREW_INJURY', this.state, { crew: targetCrew });
+                }
+            }
+
+            // A.U.R.A. reacts to crew death
+            if (targetCrew.status === 'DEAD' && typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('CREW_DEATH', this.state, true);
             }
         } else {
             logMsg = "Operations Successful. Team returned safely. ";
+
+            // A.U.R.A. reacts to success (occasionally)
+            if (Math.random() < 0.4 && typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                window.AuraSystem.tryComment('SUCCESS', this.state);
+            }
         }
 
         // 2. Reward
-        // Even on injury, you usually get the loot (unless dead? lets be generous for now)
+        // OBSESSED bonus: +50% resources or double items
+        const isObsessed = this.state.hasActiveTrait('OBSESSED');
+
         if (choice.reward.type === 'RESOURCE') {
             let amount = 0;
             if (choice.reward.val === 'METALS') amount = 40 + Math.floor(Math.random() * 40);
             else if (choice.reward.val === 'METALS_HIGH') amount = 60 + Math.floor(Math.random() * 60);
             else amount = 30 + Math.floor(Math.random() * 20); // Energy
 
+            if (isObsessed) {
+                amount = Math.floor(amount * 1.5);
+                logMsg += "Mira's obsessive sampling yields extra. ";
+            }
+
             if (choice.reward.val.includes('METALS')) {
-                const old = this.state.metals;
-                this.state.metals = Math.min(this.state.maxMetals, this.state.metals + amount);
-                logMsg += `Recovered ${amount} Metals.`;
-                if (this.state.metals === this.state.maxMetals && old < this.state.maxMetals) {
+                const old = this.state.salvage;
+                this.state.salvage = Math.min(this.state.maxSalvage, this.state.salvage + amount);
+                logMsg += `Recovered ${amount} Salvage.`;
+                if (this.state.salvage === this.state.maxSalvage && old < this.state.maxSalvage) {
                     logMsg += " (Storage Cap Reached)";
                 }
             } else {
@@ -479,23 +2630,236 @@ class App {
                 logMsg += `Siphoned ${amount} Energy.`;
             }
         } else if (choice.reward.type === 'ITEM') {
-            // Pick a random item
-            const item = this.getProbeItem(this.state.currentSystem); // Reuse pool logic for now
+            const item = this.getProbeItem(this.state.currentSystem);
             this.state.cargo.push(item);
             logMsg += `Secured Artifact: ${item.name}.`;
+
+            // OBSESSED bonus: Mira finds a second item
+            if (isObsessed) {
+                const bonusItem = this.getProbeItem(this.state.currentSystem);
+                this.state.cargo.push(bonusItem);
+                logMsg += ` Mira also recovered: ${bonusItem.name}.`;
+            }
         }
 
         this.state.addLog(logMsg);
         this.state.emitUpdates();
     }
 
+    /**
+     * EDEN EVA — Special peaceful encounter on paradise world.
+     * No danger, guaranteed positive outcomes, emotional payoff.
+     */
+    showEdenEvaModal(planet) {
+        const evaTeam = this.currentEvaTeam;
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2000';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #44ff88; max-width: 700px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #225533, #338844); color: #ffffff;">
+                    /// EVA MISSION: PARADISE FOUND ///
+                </div>
+                <div style="padding: 25px;">
+                    <p style="font-style: italic; color: #aaffcc; margin-bottom: 20px; line-height: 1.7; border-left: 3px solid #44ff88; padding-left: 15px;">
+                        ${evaTeam[0].name} and ${evaTeam[1].name} step onto the surface.
+                        <br><br>
+                        The air is... breathable. Clean. Sweet, even. The ground is soft with grass that has never known boots.
+                        <br><br>
+                        Birds call in the distance — or something like birds. The sky is blue. A stream runs nearby, clear and cold.
+                        <br><br>
+                        For the first time since leaving Earth, the universe feels kind.
+                    </p>
+                    <div style="color: #88ffaa; margin-bottom: 20px; text-align: center;">
+                        This world is perfect. There is no danger here. Only choices.
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button class="eden-choice" data-action="rest" style="
+                            padding: 14px; text-align: left;
+                            border: 1px solid #44ff88; background: rgba(30,80,50,0.7);
+                            color: #ffffff; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold; color: #88ffcc;">Rest and recover</div>
+                            <div style="font-size: 0.85em; color: #aaffcc;">All crew stress cleared. Heal all injuries. This is what you needed.</div>
+                        </button>
+                        <button class="eden-choice" data-action="gather" style="
+                            padding: 14px; text-align: left;
+                            border: 1px solid #44ff88; background: rgba(30,80,50,0.7);
+                            color: #ffffff; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold; color: #88ffcc;">Gather fruit and fresh water</div>
+                            <div style="font-size: 0.85em; color: #aaffcc;">+10 Rations. The land provides.</div>
+                        </button>
+                        <button class="eden-choice" data-action="explore" style="
+                            padding: 14px; text-align: left;
+                            border: 1px solid #44ff88; background: rgba(30,80,50,0.7);
+                            color: #ffffff; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold; color: #88ffcc;">Explore the valley</div>
+                            <div style="font-size: 0.85em; color: #aaffcc;">+50 Salvage (natural materials). Mark colony site.</div>
+                        </button>
+                        <button class="eden-choice" data-action="remember" style="
+                            padding: 14px; text-align: left;
+                            border: 1px solid #44ff88; background: rgba(30,80,50,0.7);
+                            color: #ffffff; cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div style="font-weight: bold; color: #88ffcc;">Remember what you're fighting for</div>
+                            <div style="font-size: 0.85em; color: #aaffcc;">+20 Energy (renewed purpose). All crew -1 stress.</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('.eden-choice').forEach(btn => {
+            btn.onmouseenter = () => {
+                btn.style.background = 'rgba(40,100,60,0.9)';
+                btn.style.borderColor = '#88ffcc';
+            };
+            btn.onmouseleave = () => {
+                btn.style.background = 'rgba(30,80,50,0.7)';
+                btn.style.borderColor = '#44ff88';
+            };
+            btn.onclick = () => {
+                const action = btn.dataset.action;
+
+                switch (action) {
+                    case 'rest':
+                        // Full recovery - stress and injuries
+                        this.state.crew.forEach(c => {
+                            if (c.status !== 'DEAD') {
+                                c.stress = 0;
+                                if (c.status === 'INJURED') c.status = 'HEALTHY';
+                            }
+                        });
+                        this.state.addLog(`${evaTeam[0].name} and ${evaTeam[1].name} found a quiet place by the stream. The whole crew rotated through in shifts.`);
+                        this.state.addLog("For the first time in months, everyone truly rested. All stress cleared. All injuries healed.");
+                        break;
+                    case 'gather':
+                        this.state.rations = Math.min(this.state.maxRations, this.state.rations + 10);
+                        this.state.addLog("The fruit was unlike anything from Earth, but it tasted like coming home. +10 Rations.");
+                        break;
+                    case 'explore':
+                        this.state.salvage = Math.min(this.state.maxSalvage, this.state.salvage + 50);
+                        planet._colonyMarked = true;
+                        this.state.addLog("The valley stretches for kilometers. Clean soil, fresh water, gentle climate. This could be home. +50 Salvage. Colony site marked.");
+                        break;
+                    case 'remember':
+                        this.state.energy = Math.min(100, this.state.energy + 20);
+                        this.state.crew.forEach(c => {
+                            if (c.status !== 'DEAD') {
+                                c.stress = Math.max(0, (c.stress || 0) - 1);
+                            }
+                        });
+                        this.state.addLog(`${evaTeam[0].name}: "This is why we left Earth. This is what we're looking for."`);
+                        this.state.addLog("Renewed purpose fills the crew. +20 Energy. All crew -1 stress.");
+                        break;
+                }
+
+                planet.hasEva = true;
+                this.orbitView.updateCommandDeck(planet);
+                this.state.emitUpdates();
+                modal.remove();
+            };
+        });
+    }
+
     handleLogUpdate(e) {
         const logContainer = document.getElementById('log-entries');
         if (!logContainer) return;
-        const msg = e.detail?.message || "Log Updated";
+        let msg = e.detail?.message || "Log Updated";
         const entry = document.createElement('div');
         entry.className = 'log-entry new';
-        entry.innerHTML = msg; // Enable HTML for colors
+
+        // Style crew dialogue — detect "Name: " patterns for crew barks
+        const crewColors = {
+            'Eng. Jaxon': '#f0a030', 'Jaxon': '#f0a030',
+            'Dr. Aris': '#40c8ff', 'Aris': '#40c8ff',
+            'Spc. Vance': '#ff5050', 'Vance': '#ff5050',
+            'Tech Mira': '#d070ff', 'Mira': '#d070ff',
+            'A.U.R.A.': '#00ff88'
+        };
+
+        let styled = false;
+        // Check for Commander (dynamic name: "Cmdr. LastName:")
+        if (msg.startsWith('Cmdr.')) {
+            const colonIdx = msg.indexOf(':');
+            if (colonIdx > 0) {
+                const name = msg.substring(0, colonIdx);
+                const quote = msg.substring(colonIdx + 1).trim();
+                entry.innerHTML = `<span style="color:#ffffff;font-weight:bold;">${name}:</span> <span style="color:#ffffff;opacity:0.85;font-style:italic;">${quote}</span>`;
+                styled = true;
+            }
+        }
+        if (!styled) {
+            for (const [name, color] of Object.entries(crewColors)) {
+                if (msg.startsWith(`${name}:`)) {
+                    const quote = msg.substring(name.length + 1).trim();
+                    entry.innerHTML = `<span style="color:${color};font-weight:bold;">${name}:</span> <span style="color:${color};opacity:0.85;font-style:italic;">${quote}</span>`;
+                    styled = true;
+                    break;
+                }
+            }
+        }
+
+        // Style warnings and critical messages
+        if (!styled) {
+            if (msg.startsWith('CRITICAL:') || msg.startsWith('CATASTROPHE:')) {
+                entry.innerHTML = `<span style="color:#ff4444;font-weight:bold;text-shadow: 0 0 5px #ff0000;">${msg}</span>`;
+                entry.classList.add('log-critical');
+                styled = true;
+            } else if (msg.startsWith('WARNING:') || msg.startsWith('ALERT:') || msg.includes('⚠')) {
+                entry.innerHTML = `<span style="color:#ffaa00;font-weight:bold;">${msg}</span>`;
+                entry.classList.add('log-warning');
+                styled = true;
+            } else if (msg.startsWith('HULL BREACH:')) {
+                entry.innerHTML = `<span style="color:#ff4444;font-weight:bold;text-shadow: 0 0 5px #ff0000;">${msg}</span>`;
+                entry.classList.add('log-critical');
+                styled = true;
+            } else if (msg.startsWith('REPAIR COMPLETE:') || msg.includes('recovered') || msg.includes('restored')) {
+                entry.innerHTML = `<span style="color:#44ff88;">${msg}</span>`;
+                styled = true;
+            } else if (msg.startsWith('Sector ') && msg.includes('Generated')) {
+                entry.innerHTML = `<span style="color:#44aaff;font-weight:bold;border-bottom:1px solid #44aaff;">${msg}</span>`;
+                entry.classList.add('log-sector');
+                styled = true;
+            } else if (msg.startsWith('ANOMALY CONTACT:') || msg.includes('ANOMALY:')) {
+                entry.innerHTML = `<span style="color:#d070ff;font-weight:bold;">${msg}</span>`;
+                entry.classList.add('log-anomaly');
+                styled = true;
+            } else if (msg.startsWith('Colony') && (msg.includes('Established') || msg.includes('Success'))) {
+                entry.innerHTML = `<span style="color:#44ff88;font-weight:bold;font-size:1.1em;text-shadow: 0 0 10px #44ff88;">${msg}</span>`;
+                entry.classList.add('log-victory');
+                styled = true;
+            } else if (msg.includes('EVA team deployed') || msg.includes('Probe launched')) {
+                entry.innerHTML = `<span style="color:#88ccff;">${msg}</span>`;
+                styled = true;
+            } else if (msg.includes('Warping to')) {
+                entry.innerHTML = `<span style="color:#aaaaff;font-style:italic;">${msg}</span>`;
+                styled = true;
+            } else if (msg.includes('KIA') || msg.includes('has died') || msg.includes('DEAD')) {
+                entry.innerHTML = `<span style="color:#ff4444;font-weight:bold;">${msg}</span>`;
+                entry.classList.add('log-death');
+                styled = true;
+            } else if (msg.includes('stressed') || msg.includes('morale') || msg.includes('breakdown')) {
+                entry.innerHTML = `<span style="color:#ff8844;">${msg}</span>`;
+                styled = true;
+            } else if (msg.includes('+') && (msg.includes('Salvage') || msg.includes('Energy') || msg.includes('Ration'))) {
+                entry.innerHTML = `<span style="color:#88ff88;">${msg}</span>`;
+                styled = true;
+            } else if (msg.includes('-') && (msg.includes('Salvage') || msg.includes('Energy'))) {
+                entry.innerHTML = `<span style="color:#ff8888;">${msg}</span>`;
+                styled = true;
+            }
+        }
+
+        if (!styled) {
+            entry.innerHTML = msg;
+        }
+
         logContainer.appendChild(entry);
 
         // Auto scroll force
@@ -505,80 +2869,193 @@ class App {
     }
 
     updateHud() {
+        // Energy
         document.getElementById('res-energy').textContent = `${this.state.energy}%`;
-        document.getElementById('res-oxygen').textContent = `${this.state.oxygen}%`;
 
-        // Show Cap
-        const m = this.state.metals;
-        const max = this.state.maxMetals;
-        const el = document.getElementById('res-metals');
-        el.textContent = `${m}/${max}`;
-        if (m >= max) el.style.color = '#ffaa00';
-        else el.style.color = 'var(--color-primary)';
-
-        document.getElementById('res-probe').textContent = `${this.state.probeIntegrity.toFixed(0)}%`;
-        const crewCount = this.state.crew.filter(c => c.status !== 'DEAD').length;
-        document.getElementById('res-crew').textContent = `${crewCount}/${this.state.crew.length}`;
-        document.getElementById('game-date').textContent = `DATE: 2342.05.${12 + this.state.currentSector}`;
-
-        // Add Cargo if not exists in DOM
-        let cargoEl = document.getElementById('res-cargo');
-        if (!cargoEl) {
-            const cluster = document.querySelector('.resource-cluster');
-            const div = document.createElement('div');
-            div.className = 'res-item';
-            div.innerHTML = `<label>CARGO</label><span id="res-cargo">0</span>`;
-            cluster.appendChild(div);
-            cargoEl = div.querySelector('#res-cargo');
+        // Salvage (with cap)
+        const s = this.state.salvage;
+        const sMax = this.state.maxSalvage;
+        const salvageEl = document.getElementById('res-salvage');
+        if (salvageEl) {
+            salvageEl.textContent = `${s}/${sMax}`;
+            salvageEl.style.color = (s >= sMax) ? '#ffaa00' : 'var(--color-primary)';
         }
 
-        // ALWAYS update the text content
-        cargoEl.textContent = `${this.state.cargo.length}`;
-        // Helper to make entire resource item clickable
-        const cargoContainer = cargoEl.parentElement;
-        cargoContainer.style.cursor = 'pointer';
-        cargoContainer.style.border = '1px solid transparent';
-        cargoContainer.onmouseover = () => { cargoContainer.style.borderBottom = '1px solid var(--color-primary)'; };
-        cargoContainer.onmouseout = () => { cargoContainer.style.borderBottom = '1px solid transparent'; };
-        cargoContainer.onclick = () => this.showCargoInventory();
+        // Rations (color-coded warnings)
+        const rEl = document.getElementById('res-rations');
+        if (rEl) {
+            rEl.textContent = `${this.state.rations}/${this.state.maxRations}`;
+            if (this.state.rations <= 2) rEl.style.color = '#ff4444';
+            else if (this.state.rations <= 5) rEl.style.color = '#ffaa00';
+            else rEl.style.color = 'var(--color-primary)';
+        }
 
-        const crewContainer = document.getElementById('res-crew').parentElement;
-        crewContainer.style.cursor = 'pointer';
-        crewContainer.style.border = '1px solid transparent';
-        crewContainer.onmouseover = () => { crewContainer.style.borderBottom = '1px solid var(--color-primary)'; };
-        crewContainer.onmouseout = () => { crewContainer.style.borderBottom = '1px solid transparent'; };
-        crewContainer.onclick = () => this.showCrewManifest();
+        // Crew status display on Quarters deck (visual dots)
+        this.updateCrewStatusDisplay();
+
+        // Date (advances with actions)
+        document.getElementById('game-date').textContent = `DATE: 2342.${String(5 + Math.floor(this.state.actionsTaken / 10)).padStart(2, '0')}.${String(12 + (this.state.actionsTaken % 30)).padStart(2, '0')}`;
+
+        // Sector name
+        const SECTOR_NAMES = { 1: 'THE GRAVEYARD', 2: 'THE DARK VOID', 3: 'THE SIGNAL', 4: 'THE GARDEN', 5: 'THE EVENT HORIZON', 6: 'THE THRESHOLD' };
+        const sectorEl = document.getElementById('sector-name');
+        if (sectorEl) {
+            sectorEl.textContent = `/// SECTOR ${this.state.currentSector}: ${SECTOR_NAMES[this.state.currentSector] || 'UNKNOWN'}`;
+        }
+
+        // Ship deck visual state
+        this.updateDeckVisuals();
+    }
+
+    updateDeckVisuals() {
+        Object.entries(this.state.shipDecks).forEach(([key, deck]) => {
+            const deckEl = document.querySelector(`.ship-deck[data-room="${key}"]`);
+            if (!deckEl) return;
+            if (deck.status === 'DAMAGED') {
+                deckEl.classList.add('deck-damaged');
+            } else {
+                deckEl.classList.remove('deck-damaged');
+            }
+        });
+    }
+
+    /**
+     * Update crew status display on Quarters deck (visual dots showing crew health/stress)
+     */
+    updateCrewStatusDisplay() {
+        const container = document.getElementById('deck-crew-status');
+        if (!container) return;
+
+        container.innerHTML = this.state.crew.map(c => {
+            let statusClass = 'healthy';
+            let title = `${c.name}: ${c.status}`;
+
+            if (c.status === 'DEAD') {
+                statusClass = 'dead';
+                title = `${c.name}: DECEASED`;
+            } else if (c.tags && c.tags.includes('SEDATED')) {
+                statusClass = 'sedated';
+                title = `${c.name}: SEDATED`;
+            } else if (c.stress >= 3) {
+                statusClass = 'critical';
+                title = `${c.name}: CRITICAL STRESS!`;
+            } else if (c.status === 'INJURED') {
+                statusClass = 'injured';
+                title = `${c.name}: INJURED`;
+            } else if (c.stress >= 2) {
+                statusClass = 'stressed';
+                title = `${c.name}: HIGH STRESS`;
+            }
+
+            return `<div class="crew-dot ${statusClass}" title="${title}"></div>`;
+        }).join('');
+
+        // Make the whole quarters deck clickable to open crew manifest
+        const quartersDeck = document.querySelector('.ship-deck[data-room="quarters"]');
+        if (quartersDeck && !quartersDeck._crewClickAttached) {
+            quartersDeck._crewClickAttached = true;
+            quartersDeck.style.cursor = 'pointer';
+            quartersDeck.addEventListener('click', (e) => {
+                // Don't open if clicking the deck detail modal trigger
+                if (e.target.closest('.deck-crew-status')) {
+                    this.showCrewManifest();
+                }
+            });
+        }
+    }
+
+    getStressBar(stress) {
+        const s = stress || 0;
+        const colors = ['#00ff41', '#ffff00', '#ffa500', '#ff4444']; // 0=green, 1=yellow, 2=orange, 3=red
+        const barColor = colors[Math.min(s, 3)];
+        let bar = '[';
+        for (let i = 0; i < 3; i++) {
+            bar += i < s ? `<span style="color:${barColor}">\u25A0</span>` : `<span style="opacity:0.3">\u25A1</span>`;
+        }
+        bar += ']';
+        return bar;
     }
 
     showCrewManifest() {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
+
+        const quartersOk = this.state.isDeckOperational('quarters');
+        const canRest = quartersOk && this.state.rations >= 1;
+
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="modal-header">/// CREW MANIFEST /// <span class="close-modal">[X]</span></div>
                 <div class="crew-list">
-                    ${this.state.crew.map(c => {
-            const color = c.status === 'DEAD' ? '#ff4444' : (c.status.includes('INJURED') ? '#ffaa00' : 'var(--color-primary)');
-            const borderColor = c.status === 'DEAD' ? '#ff4444' : 'var(--color-primary-dim)';
+                    ${this.state.crew.map((c, idx) => {
+            const isSedated = c.tags && c.tags.includes('SEDATED');
+            const isConfined = c.tags && c.tags.includes('CONFINED');
+            const color = c.status === 'DEAD' ? '#ff4444' : isSedated ? '#8888ff' : isConfined ? '#ff8888' : (c.status === 'INJURED' ? '#ffaa00' : 'var(--color-primary)');
+            const borderColor = c.status === 'DEAD' ? '#ff4444' : isSedated ? '#8888ff' : isConfined ? '#ff8888' : 'var(--color-primary-dim)';
+            const statusText = isSedated ? 'SEDATED' : isConfined ? 'CONFINED' : c.status;
+            const showRest = c.status !== 'DEAD' && !isSedated && !isConfined && (c.stress || 0) > 0 && quartersOk;
+            const restDisabled = !canRest;
+            // Stress-based visual effects
+            const stressLevel = c.stress || 0;
+            const stressFilter = stressLevel >= 3 ? 'saturate(0.5) contrast(1.2) brightness(0.8)' :
+                                 stressLevel === 2 ? 'saturate(0.7) sepia(0.2)' :
+                                 stressLevel === 1 ? 'saturate(0.85)' : '';
+            const stressGlow = stressLevel >= 3 ? '0 0 15px #ff0000, inset 0 0 20px rgba(255,0,0,0.3)' :
+                               stressLevel === 2 ? '0 0 10px #ff6600' :
+                               stressLevel === 1 ? '0 0 5px #ffaa00' : '';
+            const stressOverlay = stressLevel >= 3 ? '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg,transparent 60%,rgba(255,0,0,0.3));pointer-events:none;"></div><div style="position:absolute;top:0;left:0;right:0;bottom:0;animation:stress-pulse 1s infinite;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 20px rgba(255,0,0,0.5);"></div>' :
+                                  stressLevel === 2 ? '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg,transparent 70%,rgba(255,100,0,0.2));pointer-events:none;"></div>' :
+                                  stressLevel === 1 ? '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg,transparent 80%,rgba(255,170,0,0.1));pointer-events:none;"></div>' : '';
+
             return `
-                        <div class="crew-card" style="border: 1px solid ${borderColor}; color: ${color};">
-                            <div class="crew-icon" style="overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; filter: drop-shadow(0 0 5px ${color});">
-                                <img src="assets/crew/${c.portraitId || 1}.png" 
-                                     style="width: 100%; height: 100%; object-fit: cover;"
+                        <div class="crew-card" style="border: 1px solid ${borderColor}; color: ${color}; ${isSedated || isConfined ? 'opacity: 0.7;' : ''}">
+                            <div class="crew-icon" style="position:relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; filter: drop-shadow(0 0 5px ${color}); box-shadow: ${stressGlow}; ${isSedated ? 'filter: grayscale(50%) drop-shadow(0 0 5px #8888ff);' : ''}">
+                                <img src="assets/crew/${c.portraitId || 1}.png"
+                                     style="width: 100%; height: 100%; object-fit: cover; filter: ${stressFilter}; ${isSedated ? 'filter: grayscale(50%);' : ''}"
                                      onerror="this.style.display='none'; this.parentNode.innerHTML='${c.gender === 'AI' ? '🤖' : '👤'}';">
+                                ${stressOverlay}
                             </div>
                             <div class="crew-details">
                                 <div class="crew-name">${c.realName || c.name} <span style="font-size:0.7em; opacity:0.7;">(${c.name})</span></div>
-                                <div class="crew-meta" style="color: ${color}; opacity: 0.8;">AGE: ${c.age || 'N/A'} | STATUS: ${c.status}</div>
-                                <div class="crew-tags">${c.tags.join(' ')}</div>
+                                <div class="crew-meta" style="color: ${color}; opacity: 0.8;">AGE: ${c.age || 'N/A'} | STATUS: ${statusText} | STRESS: ${this.getStressBar(c.stress)}</div>
+                                <div class="crew-tags">${c.tags.filter(t => t !== 'SEDATED' && t !== 'CONFINED').join(' ')}${c.trait ? ` <span style="color:#ff4444;">[${c.trait}]</span>` : ''}
+                                    ${isSedated ? `<span style="color:#8888ff; font-weight:bold; margin-left:5px;">[SEDATED - ${c._sedatedUntilWarp || '?'} warps]</span>` : ''}
+                                    ${isConfined ? `<span style="color:#ff8888; font-weight:bold; margin-left:5px;">[CONFINED TO QUARTERS]</span>` : ''}
+                                    ${showRest ? `<button class="rest-btn" data-idx="${idx}" style="
+                                        margin-left: 10px; padding: 2px 8px; font-size: 0.8em;
+                                        background: ${restDisabled ? '#333' : 'rgba(0,100,50,0.8)'};
+                                        color: ${restDisabled ? '#666' : '#00ff88'};
+                                        border: 1px solid ${restDisabled ? '#555' : '#00ff88'};
+                                        cursor: ${restDisabled ? 'not-allowed' : 'pointer'};
+                                        font-family: var(--font-mono);
+                                    " ${restDisabled ? 'disabled' : ''}>REST (-1 RATION, -1 STRESS)</button>` : ''}
+                                </div>
                             </div>
                         </div>
                     `;
         }).join('')}
                 </div>
+                ${!quartersOk ? '<div style="color:#ff4444;font-size:0.8em;text-align:center;padding:10px;">CREW QUARTERS OFFLINE — Rest unavailable</div>' : ''}
             </div>
         `;
         document.body.appendChild(modal);
+
+        // REST button handlers
+        modal.querySelectorAll('.rest-btn:not([disabled])').forEach(btn => {
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                const c = this.state.crew[idx];
+                if (c && c.stress > 0 && this.state.rations >= 1) {
+                    this.state.rations = Math.max(0, this.state.rations - 1);
+                    c.stress = Math.max(0, c.stress - 1);
+                    this.state.addLog(`${c.name}: Rest cycle authorized. Stress reduced. (-1 Ration)`);
+                    this.state.emitUpdates();
+                    modal.remove();
+                    this.showCrewManifest(); // Refresh
+                }
+            };
+        });
+
         modal.querySelector('.close-modal').onclick = () => modal.remove();
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     }
@@ -686,15 +3163,27 @@ class App {
                 const id = parseFloat(card.dataset.id);
                 const target = this.state.crew.find(c => c.id === id);
 
-                // Apply Revival
+                // Apply Revival — crew becomes HEALTHY but with special tag for ending calculations
+                target.status = 'HEALTHY';
+                target.stress = 1; // Some residual trauma
+                target.wasRevived = true; // Track for endings
+
                 if (item.type === 'REVIVAL_BIO') {
-                    target.status = 'SYMBIOTE';
-                    target.tags.push('HIVE_MIND');
-                    this.state.addLog(`SUBJECT ${target.name} REANIMATED (BIOLOGICAL INTEGRATION).`);
+                    if (!target.tags.includes('HIVE_MIND')) target.tags.push('HIVE_MIND');
+                    this.state.addLog(`BIOLOGICAL INTEGRATION COMPLETE: ${target.name} has returned.`);
+                    this.state.addLog(`${target.name}: "I can hear them... the others who joined. They're still there, in the mycelium."`);
                 } else {
-                    target.status = 'CYBORG_HUSK';
-                    target.tags.push('MACHINE_LINK');
-                    this.state.addLog(`SUBJECT ${target.name} REANIMATED (NEURAL OVERRIDE).`);
+                    if (!target.tags.includes('MACHINE_LINK')) target.tags.push('MACHINE_LINK');
+                    this.state.addLog(`NEURAL OVERRIDE COMPLETE: ${target.name} has returned.`);
+                    this.state.addLog(`${target.name}: "Efficiency. Purpose. The static is gone. Everything is... clear now."`);
+                }
+
+                // Other crew react
+                const arisAlive = this.state.crew.find(c => c.tags.includes('MEDIC') && c.status !== 'DEAD');
+                if (arisAlive) {
+                    setTimeout(() => {
+                        this.state.addLog(`Dr. Aris: "The readings are stable but... the neural patterns are different. They're ${target.name}, but also... something else."`);
+                    }, 500);
                 }
 
                 // Consume Item
@@ -713,8 +3202,25 @@ class App {
 
 
     handleColonyAction() {
-        // Generate Outcome based on Planet Metrics
         const planet = this.state.currentSystem;
+
+        // Colony warning in S1-S2 (crew advises against)
+        const colonyConfig = (typeof SECTOR_CONFIG !== 'undefined') ? SECTOR_CONFIG[this.state.currentSector] : null;
+        if (colonyConfig && colonyConfig.colonyWarning && !planet._colonyWarningShown) {
+            this.showColonyWarningModal(planet, () => this._executeColony(planet));
+            return;
+        }
+
+        // A.U.R.A. colony commentary
+        if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+            window.AuraSystem.tryComment('COLONY_ATTEMPT', this.state, true);
+        }
+
+        this._executeColony(planet);
+    }
+
+    _executeColony(planet) {
+        // Generate Outcome based on Planet Metrics
         const outcome = EndingSystem.getColonyOutcome(planet);
 
         if (outcome.success && window.AudioSystem) {
@@ -744,16 +3250,16 @@ class App {
         overlay.innerHTML = `
             <div style="width: 800px; max-width: 90vw; border: 2px solid ${color}; padding: 2px;">
                 <div style="background: ${color}; color: #000; padding: 5px 10px; font-weight: bold; display: flex; justify-content: space-between;">
-                    <span>/// FLIGHT RECORDER: EXODUS-1</span>
+                    <span>/// FLIGHT RECORDER: EXODUS-9</span>
                     <span>STATUS: TERMINATED</span>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 20px; border-bottom: 1px solid ${color}; opacity: 0.8; font-size: 0.9em;">
                     <div>TARGET: ${planet.name}</div>
                     <div>TYPE: ${planet.type}</div>
-                    <div>DATE: 2342.05.${Math.floor(this.state.fuel)}</div> <!-- Fake Date progression -->
+                    <div>DATE: 2342.${String(5 + Math.floor(this.state.actionsTaken / 10)).padStart(2, '0')}.${String(12 + (this.state.actionsTaken % 30)).padStart(2, '0')}</div>
                     <div>SURVIVORS: ${survivors}/${totalCrew}</div>
-                    <div>METALS: ${this.state.metals}</div>
+                    <div>SALVAGE: ${this.state.salvage}</div>
                     <div>UPGRADES: ${this.state.upgrades.length}</div>
                 </div>
 
@@ -772,6 +3278,337 @@ class App {
         `;
 
         document.body.appendChild(overlay);
+    }
+
+    showDeckDetail(deckKey) {
+        // Upgrades deck opens fabricator instead
+        if (deckKey === 'upgrades') {
+            this.showFabricator();
+            return;
+        }
+
+        const deck = this.state.shipDecks[deckKey];
+        if (!deck) return;
+
+        const effects = {
+            bridge: 'Navigation, remote scanning, A.U.R.A. core. DAMAGE: Warp +50% cost, remote scan disabled.',
+            lab: 'Deep scanning, item identification. DAMAGE: Partial scan data, items unidentified.',
+            quarters: 'Crew healing, stress recovery. DAMAGE: No passive healing, no stress recovery.',
+            cargo: 'Inventory storage. DAMAGE: Cargo capacity halved to 10 units.',
+            engineering: 'Probe fabrication, drives. DAMAGE: No probe fab, jump cost x2, repair cost +50%.'
+        };
+
+        let repairCost = deck.repairCost;
+        const jaxonAlive = this.state.crew.some(c => c.tags.includes('ENGINEER') && c.status !== 'DEAD');
+        if (jaxonAlive) repairCost = Math.floor(repairCost * 0.7);
+        if (deckKey !== 'engineering' && this.state.shipDecks.engineering.status === 'DAMAGED') {
+            repairCost = Math.floor(repairCost * 1.5);
+        }
+
+        const statusColor = deck.status === 'OPERATIONAL' ? 'var(--color-primary)' : '#ff4444';
+        const canRepair = deck.status === 'DAMAGED' && this.state.salvage >= repairCost;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header" style="color: ${statusColor};">/// ${deck.label} /// <span class="close-modal">[X]</span></div>
+                <div style="padding: 20px;">
+                    <div style="margin-bottom: 15px;">
+                        <span style="color: ${statusColor}; font-weight: bold;">STATUS: ${deck.status}</span>
+                    </div>
+                    <div style="font-size: 0.85em; color: var(--color-text-dim); margin-bottom: 20px;">
+                        ${effects[deckKey]}
+                    </div>
+                    ${deck.status === 'DAMAGED' ? `
+                        <div style="border-top: 1px solid var(--color-primary-dim); padding-top: 15px;">
+                            <div style="margin-bottom: 10px; font-size: 0.9em;">
+                                REPAIR COST: ${repairCost} SALVAGE ${jaxonAlive ? '(Jaxon -30%)' : ''}
+                                ${deckKey !== 'engineering' && this.state.shipDecks.engineering.status === 'DAMAGED' ? '(Eng. offline +50%)' : ''}
+                            </div>
+                            <div style="font-size: 0.8em; color: var(--color-text-dim); margin-bottom: 10px;">AVAILABLE: ${this.state.salvage} SALVAGE</div>
+                            <button class="repair-btn" style="
+                                width: 100%; padding: 10px;
+                                background: ${canRepair ? 'var(--color-accent)' : '#333'};
+                                color: ${canRepair ? '#000' : '#666'};
+                                border: 1px solid ${canRepair ? 'var(--color-accent)' : '#555'};
+                                cursor: ${canRepair ? 'pointer' : 'not-allowed'};
+                                font-family: var(--font-mono); font-weight: bold;
+                            " ${canRepair ? '' : 'disabled'}>
+                                ${canRepair ? 'INITIATE REPAIR' : 'INSUFFICIENT SALVAGE'}
+                            </button>
+                        </div>
+                    ` : `
+                        <div style="color: var(--color-primary); font-size: 0.9em; text-align: center; padding: 10px; border: 1px solid var(--color-primary-dim);">
+                            ALL SYSTEMS NOMINAL
+                        </div>
+                    `}
+                    ${deckKey === 'cargo' ? `
+                        <button class="cargo-btn" style="
+                            width: 100%; padding: 10px; margin-top: 15px;
+                            background: rgba(0,0,0,0.8); color: var(--color-primary);
+                            border: 1px solid var(--color-primary);
+                            cursor: pointer; font-family: var(--font-mono); font-weight: bold;
+                        ">VIEW CARGO (${this.state.cargo.length}/20)</button>
+                    ` : ''}
+                    ${deckKey === 'engineering' ? `
+                        <button class="fabricator-btn" style="
+                            width: 100%; padding: 12px; margin-top: 15px;
+                            background: ${deck.status === 'OPERATIONAL' ? 'var(--color-accent)' : '#333'};
+                            color: ${deck.status === 'OPERATIONAL' ? '#000' : '#666'};
+                            border: 1px solid ${deck.status === 'OPERATIONAL' ? 'var(--color-accent)' : '#555'};
+                            cursor: ${deck.status === 'OPERATIONAL' ? 'pointer' : 'not-allowed'};
+                            font-family: var(--font-mono); font-weight: bold;
+                        " ${deck.status === 'DAMAGED' ? 'disabled' : ''}>
+                            ${deck.status === 'OPERATIONAL' ? `ACCESS FABRICATOR (${this.state.upgrades.length} INSTALLED)` : 'FABRICATOR OFFLINE'}
+                        </button>
+                        <div style="margin-top: 10px; padding: 10px; border: 1px dashed var(--color-primary-dim); font-size: 0.8em; color: var(--color-text-dim);">
+                            <div style="color: var(--color-accent); margin-bottom: 5px;">INSTALLED MODULES:</div>
+                            ${this.state.upgrades.length > 0
+                                ? this.state.upgrades.map(id => {
+                                    const upg = Object.values(UPGRADES).find(u => u.id === id);
+                                    return upg ? `<div style="margin: 3px 0;">• ${upg.name}</div>` : '';
+                                }).join('')
+                                : '<div style="font-style: italic;">None installed</div>'
+                            }
+                        </div>
+                    ` : ''}
+                    ${deckKey === 'quarters' ? `
+                        <button class="crew-btn" style="
+                            width: 100%; padding: 10px; margin-top: 15px;
+                            background: rgba(0,0,0,0.8); color: var(--color-primary);
+                            border: 1px solid var(--color-primary);
+                            cursor: pointer; font-family: var(--font-mono); font-weight: bold;
+                        ">VIEW CREW MANIFEST</button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        if (canRepair) {
+            modal.querySelector('.repair-btn').onclick = () => {
+                this.state.repairDeck(deckKey);
+                modal.remove();
+            };
+        }
+
+        const cargoBtn = modal.querySelector('.cargo-btn');
+        if (cargoBtn) {
+            cargoBtn.onclick = () => {
+                modal.remove();
+                this.showCargoInventory();
+            };
+        }
+
+        const fabBtn = modal.querySelector('.fabricator-btn');
+        if (fabBtn && !fabBtn.disabled) {
+            fabBtn.onclick = () => {
+                modal.remove();
+                this.showFabricator();
+            };
+        }
+
+        const crewBtn = modal.querySelector('.crew-btn');
+        if (crewBtn) {
+            crewBtn.onclick = () => {
+                modal.remove();
+                this.showCrewManifest();
+            };
+        }
+
+        modal.querySelector('.close-modal').onclick = () => modal.remove();
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
+
+    /**
+     * Handle anomaly teleportation - visual effect and view refresh
+     */
+    handleAnomalyTeleport(detail) {
+        const { destination, type } = detail;
+
+        // Create visual teleport effect
+        const flash = document.createElement('div');
+        flash.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 9999; pointer-events: none;
+            animation: teleport-flash 1.5s ease-out forwards;
+        `;
+
+        const style = document.createElement('style');
+        if (type === 'WRONG_PLACE') {
+            // Disturbing red/purple flash for wrong place
+            style.textContent = `
+                @keyframes teleport-flash {
+                    0% { background: rgba(255, 0, 0, 0.8); }
+                    20% { background: rgba(136, 0, 200, 0.9); }
+                    40% { background: rgba(255, 255, 255, 1); }
+                    60% { background: rgba(50, 0, 80, 0.8); }
+                    80% { background: rgba(255, 0, 50, 0.4); }
+                    100% { background: rgba(0, 0, 0, 0); }
+                }
+            `;
+        } else {
+            // Cyan/white flash for successful fold travel
+            style.textContent = `
+                @keyframes teleport-flash {
+                    0% { background: rgba(0, 255, 255, 0.8); }
+                    30% { background: rgba(255, 255, 255, 1); }
+                    60% { background: rgba(0, 200, 255, 0.5); }
+                    100% { background: rgba(0, 0, 0, 0); }
+                }
+            `;
+        }
+
+        document.head.appendChild(style);
+        document.body.appendChild(flash);
+
+        // Remove flash after animation
+        setTimeout(() => {
+            flash.remove();
+            style.remove();
+        }, 1500);
+
+        // Refresh the view after a short delay
+        setTimeout(() => {
+            const sectorNameEl = document.getElementById('sector-name');
+
+            if (type === 'WRONG_PLACE') {
+                // Update sector display for wrong place
+                if (sectorNameEl) {
+                    sectorNameEl.textContent = '/// SECTOR ???: THE WRONG PLACE';
+                    sectorNameEl.style.color = '#ff4444';
+                    sectorNameEl.style.animation = 'pulse 1s infinite';
+                }
+            } else if (type === 'FOLD_SUCCESS') {
+                // Update sector display for successful fold jump
+                if (sectorNameEl) {
+                    const SECTOR_NAMES = {
+                        1: 'THE GRAVEYARD', 2: 'THE DEEP', 3: 'THE INTERFERENCE',
+                        4: 'THE GARDEN', 5: 'THE EVENT HORIZON', 6: 'THE THRESHOLD'
+                    };
+                    sectorNameEl.textContent = `/// SECTOR ${this.state.currentSector}: ${SECTOR_NAMES[this.state.currentSector] || 'UNKNOWN'}`;
+                    sectorNameEl.style.color = '#00ffff';
+                    sectorNameEl.style.animation = 'none';
+                    // Flash cyan then return to normal
+                    setTimeout(() => {
+                        sectorNameEl.style.color = 'var(--color-accent)';
+                    }, 2000);
+                }
+                // Render nav view since we're in a new sector
+                this.renderNav();
+                return;
+            }
+
+            this.state.emitUpdates();
+            this.renderOrbit();
+        }, 800);
+    }
+
+    showGameOver(detail) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; color: #ff4444; z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Share Tech Mono', monospace;
+        `;
+        overlay.innerHTML = `
+            <div style="width: 700px; max-width: 90vw; border: 2px solid #ff4444; padding: 2px;">
+                <div style="background: #ff4444; color: #000; padding: 5px 10px; font-weight: bold; display: flex; justify-content: space-between;">
+                    <span>/// MISSION FAILED</span>
+                    <span>${detail.title}</span>
+                </div>
+                <div style="padding: 40px; font-size: 1.1em; line-height: 1.8; text-align: center;">
+                    ${detail.message}
+                </div>
+                <div style="border-top: 1px solid #ff4444; padding: 15px; text-align: center; font-size: 0.8em; color: #ff444488;">
+                    SECTOR: ${this.state.currentSector} | ACTIONS: ${this.state.actionsTaken} | SALVAGE: ${this.state.salvage}
+                </div>
+            </div>
+            <button onclick="location.reload()" style="
+                margin-top: 30px; padding: 15px 30px; background: transparent;
+                border: 1px solid #ff4444; color: #ff4444; font-size: 1em;
+                cursor: pointer; font-family: inherit;
+            ">REBOOT SIMULATION</button>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    showMutinyEvent(detail) {
+        const vance = detail.instigator;
+        const commander = this.state.crew.find(c => c.tags.includes('LEADER') && c.status !== 'DEAD');
+        if (!commander) return; // Commander already dead, mutiny is moot
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '3000';
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #ff4444; max-width: 550px;">
+                <div class="modal-header" style="background: #ff4444; color: #000;">/// MUTINY ///</div>
+                <div style="padding: 20px; text-align: center;">
+                    <p style="margin-bottom: 15px; color: #ff6666; font-style: italic;">
+                        "${vance.name} has drawn his sidearm. He demands ${commander.name} step down."
+                    </p>
+                    <p style="margin-bottom: 20px; font-size: 0.9em; color: var(--color-text-dim);">
+                        "You've led us into hell. Every decision, every death — on your head. Stand down, or I will put you down."
+                    </p>
+                    <div style="display: flex; gap: 15px; justify-content: center;">
+                        <button class="mutiny-choice" data-choice="support" style="
+                            flex: 1; padding: 15px; border: 1px solid var(--color-primary);
+                            background: rgba(0,0,0,0.8); color: var(--color-primary);
+                            cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div>SUPPORT COMMANDER</div>
+                            <div style="font-size: 0.7em; margin-top: 5px; color: var(--color-text-dim);">Vance will be restrained</div>
+                        </button>
+                        <button class="mutiny-choice" data-choice="side" style="
+                            flex: 1; padding: 15px; border: 1px solid #ff4444;
+                            background: rgba(40,0,0,0.8); color: #ff4444;
+                            cursor: pointer; font-family: var(--font-mono);
+                        ">
+                            <div>SIDE WITH VANCE</div>
+                            <div style="font-size: 0.7em; margin-top: 5px; color: var(--color-text-dim);">Commander will be confined</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('.mutiny-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const choice = btn.dataset.choice;
+                if (choice === 'support') {
+                    // Vance is restrained and sedated - cannot participate in actions
+                    vance.status = 'INJURED';
+                    vance.stress = 1;
+                    vance.trait = null;
+                    vance.breakdownFired = false;
+                    vance.tags = vance.tags || [];
+                    if (!vance.tags.includes('SEDATED')) vance.tags.push('SEDATED');
+                    vance._sedatedUntilWarp = 2; // Sedated for 2 warps
+                    this.state.addLog(`Mutiny suppressed. ${vance.name} has been restrained and sedated.`);
+                    this.state.addLog(`${vance.name} will remain sedated and unable to participate in away missions.`);
+                    // Commander gains +1 stress from the confrontation
+                    commander.stress = Math.min(3, (commander.stress || 0) + 1);
+                } else {
+                    // Commander is confined: remove LEADER tag effectively, set to INJURED
+                    commander.status = 'INJURED';
+                    commander.stress = Math.min(3, (commander.stress || 0) + 1);
+                    commander.tags = commander.tags || [];
+                    if (!commander.tags.includes('CONFINED')) commander.tags.push('CONFINED');
+                    this.state.addLog(`${commander.name} has been relieved of command and confined to quarters.`);
+                    this.state.addLog(`${vance.name} assumes tactical control.`);
+                    // Vance calms down
+                    vance.stress = 1;
+                    vance.trait = null;
+                    vance.breakdownFired = false;
+                }
+                this.state.emitUpdates();
+                modal.remove();
+            });
+        });
     }
 
     renderNav() {
@@ -797,8 +3634,11 @@ class App {
                 <div class="inventory-grid">
                     ${Object.values(UPGRADES).map(upg => {
             const installed = this.state.upgrades.includes(upg.id);
-            const canAfford = this.state.metals >= upg.cost;
-            const btnText = installed ? "INSTALLED" : (canAfford ? `BUY (${upg.cost})` : `MISSING METALS (${upg.cost})`);
+            const hoarderActive = this.state.hasActiveTrait('HOARDER');
+            const effectiveCost = hoarderActive ? Math.ceil(upg.cost * 1.25) : upg.cost;
+            const canAfford = this.state.salvage >= effectiveCost;
+            const costLabel = hoarderActive ? `${effectiveCost} SALVAGE (HOARDER +25%)` : `${effectiveCost} SALVAGE`;
+            const btnText = installed ? "INSTALLED" : (canAfford ? `BUY (${costLabel})` : `NEED ${costLabel}`);
             const btnStyle = installed ? 'background: #333; cursor: default;' : (canAfford ? 'background: var(--color-accent); color: #000;' : 'opacity: 0.5; cursor: not-allowed;');
 
             return `
@@ -812,7 +3652,7 @@ class App {
                         </div>
                     `}).join('')}
                 </div>
-                <div style="margin-top: 20px; text-align: right; color: var(--color-primary);">AVAILABLE METALS: ${this.state.metals}</div>
+                <div style="margin-top: 20px; text-align: right; color: var(--color-primary);">AVAILABLE SALVAGE: ${this.state.salvage}</div>
             </div>
         `;
         document.body.appendChild(modal);
@@ -829,8 +3669,10 @@ class App {
 
     buyUpgrade(id, modal) {
         const upg = Object.values(UPGRADES).find(u => u.id === id);
-        if (upg && this.state.metals >= upg.cost) {
-            this.state.metals -= upg.cost;
+        const hoarderActive = this.state.hasActiveTrait('HOARDER');
+        const effectiveCost = hoarderActive ? Math.ceil(upg.cost * 1.25) : upg.cost;
+        if (upg && this.state.salvage >= effectiveCost) {
+            this.state.salvage -= effectiveCost;
             this.state.upgrades.push(id);
             this.state.addLog(`FABRICATION COMPLETE: ${upg.name} installed.`);
             if (window.AudioSystem) window.AudioSystem.sfxInteract(); // Re-use interact sfx

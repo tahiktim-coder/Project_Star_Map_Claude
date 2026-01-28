@@ -5,7 +5,7 @@ const LOOT_POOLS = {
     // 0. The Null Result (Now gives Trace Elements)
     // Weight will be the baseline against which other things compete
     NULL_RESULT: [
-        { type: 'RESOURCE', val: 'METALS', min: 1, max: 3, weight: 50, log: "Surface Scan: Minimal resources detected. (+2 Metals)" },
+        { type: 'RESOURCE', val: 'METALS', min: 1, max: 3, weight: 50, log: "Surface Scan: Minimal resources detected. (+2 Salvage)" },
         { type: 'RESOURCE', val: 'ENERGY', min: 1, max: 3, weight: 50, log: "Atmosphere: Trace ions harvested. (+2 Energy)" }
     ],
 
@@ -36,6 +36,7 @@ const LOOT_POOLS = {
     BIO_STANDARD: [
         { item: ITEMS.RADIOTROPHIC_FUNGUS, weight: 30 },
         { item: ITEMS.AMBER_SPECIMEN, weight: 10 },
+        { item: ITEMS.FUNGUS_CULTURE, weight: 5 },  // Rare passive ration generator
         { item: ITEMS.XENO_MYCELIUM, weight: 2 } // ULTRA RARE
     ],
 
@@ -49,7 +50,7 @@ const LOOT_POOLS = {
     // 5. Geology
     GEO_RARE: [
         { item: ITEMS.GEODE_SAMPLE, weight: 20 },
-        { item: ITEMS.CONDENSED_METALS, weight: 15 },
+        { item: ITEMS.CONDENSED_SALVAGE, weight: 15 },
         { item: ITEMS.OBSIDIAN_MONOLITH, weight: 3 }
     ],
 
@@ -58,7 +59,27 @@ const LOOT_POOLS = {
         { item: ITEMS.IONIZED_BATTERY, weight: 25 }
     ],
 
-    // 7. Lore / Data
+    // 8. Exodus Derelict Supplies (ONLY from Exodus wreck encounters — not generic loot)
+    EXODUS_SUPPLIES: [
+        { item: ITEMS.FOOD_PACK, weight: 25 },
+        { item: ITEMS.LUXURY_CHOCOLATE, weight: 15 },
+        { item: ITEMS.MUSIC_HOLOTAPE, weight: 5 }, // Rare — affects all crew
+        { item: ITEMS.IONIZED_BATTERY, weight: 15 }
+    ],
+
+    // 7a. Wreckage Salvage (scavenger-themed for WRECKAGE tag)
+    WRECKAGE_SALVAGE: [
+        { type: 'RESOURCE', val: 'METALS', min: 10, max: 25, weight: 40, log: "Stripped hull plating from an unidentified vessel." },
+        { type: 'RESOURCE', val: 'METALS', min: 15, max: 35, weight: 25, log: "Drive components recovered from a shattered engine block." },
+        { type: 'RESOURCE', val: 'ENERGY', min: 5, max: 15, weight: 20, log: "Emergency batteries recovered from wreckage debris." },
+        { item: ITEMS.SCRAP_PLATING, weight: 15 },
+        { item: ITEMS.CONDENSED_SALVAGE, weight: 10 },
+        { item: ITEMS.IONIZED_BATTERY, weight: 5 },
+        { type: 'LORE', text: "Wreckage ID: Unknown vessel. No transponder. Pre-Exodus design.", weight: 8 },
+        { type: 'LORE', text: "Cargo manifest fragment: '...final shipment, colony supplies for...' — text corrupted.", weight: 5 }
+    ],
+
+    // 7b. Lore / Data
     LORE_ANCIENT: [
         { type: 'LORE', text: "Decrypted: '...the suns are darkening one by one...'", weight: 20 },
         { type: 'LORE', text: "Visual: Massive skeletal structures beneath the crust.", weight: 20 }
@@ -144,6 +165,14 @@ const LOOT_RULES = [
         criteria: (p) => ['GAS_GIANT', 'VOLCANIC'].includes(p.type),
         pool: 'HIGH_ENERGY_ITEMS',
         msg_context: 'Plasma collection'
+    },
+
+    // --- WRECKAGE ---
+    {
+        id: 'wreckage_salvage',
+        criteria: (p) => p.tags && p.tags.includes('WRECKAGE'),
+        pool: 'WRECKAGE_SALVAGE',
+        msg_context: 'Debris field scavenging'
     },
 
     // --- LORE TAGS ---

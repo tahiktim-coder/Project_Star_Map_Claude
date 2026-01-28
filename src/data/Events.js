@@ -119,14 +119,65 @@ const EVENTS = [
             { text: "Hack Signal (Tech Risk)", riskMod: 40, reward: { type: 'ITEM', tags: ['TECH'] } }
         ]
     },
+    // --- NEW PLANET TYPE EVENTS ---
     {
-        id: 'DISTRESS_BEACON', // Fallback NEEDS TO BE LAST
-        trigger: () => true,
-        title: "DISTRESS BEACON",
-        desc: "A faint repeating signal is coming from a debris field.",
+        id: 'TERMINATOR_WALK',
+        trigger: (planet) => planet.type === 'TIDALLY_LOCKED',
+        title: "THE THIN LINE",
+        desc: "The habitable band is barely 200km wide. One wrong step — eternal fire or eternal ice.",
         choices: [
-            { text: "Scan & Leave (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'ENERGY' } },
-            { text: "Investigate Debris (Risky)", riskMod: 20, reward: { type: 'RESOURCE', val: 'METALS_HIGH' } }
+            { text: "Survey Twilight Zone (Moderate)", riskMod: 15, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Cross Into The Dark Side (Extreme)", riskMod: 55, reward: { type: 'ITEM', tags: ['ARTIFACT', 'LORE'] } }
+        ]
+    },
+    {
+        id: 'INNER_WORLD',
+        trigger: (planet) => planet.type === 'HOLLOW',
+        title: "THE INTERIOR",
+        desc: "The team has found an entry point. Inside: inverted gravity, a miniature sun, and the ruins of a dead civilization on the inner walls.",
+        choices: [
+            { text: "Photograph From Entrance (Safe)", riskMod: 5, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Descend Into Interior (Extreme)", riskMod: 50, reward: { type: 'ITEM', tags: ['LORE', 'ARTIFACT'] } }
+        ]
+    },
+    {
+        id: 'SYMBIOTE_EMBRACE',
+        trigger: (planet) => planet.type === 'SYMBIOTE_WORLD',
+        title: "THE WELCOME",
+        desc: "The biosphere is actively growing pathways for the landing team. Fruit appears at their feet. It smells like home.",
+        choices: [
+            { text: "Accept Gifts, Stay Cautious (Safe)", riskMod: 0, reward: { type: 'ITEM', tags: ['BIO'] } },
+            { text: "Let Mira Interface Fully (Psych Risk)", riskMod: 35, reward: { type: 'ITEM', tags: ['BIO', 'LORE'] } }
+        ]
+    },
+    {
+        id: 'THE_REFLECTION',
+        trigger: (planet) => planet.type === 'MIRROR',
+        title: "THE REFLECTION",
+        desc: "On the surface, the team sees themselves. Dead. Decomposed. Arranged in a circle around the landing zone. Sensors insist nothing is there.",
+        choices: [
+            { text: "Abort EVA Immediately (Morale Loss)", riskMod: 0, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Investigate The Image (Psych Risk)", riskMod: 40, reward: { type: 'ITEM', tags: ['ARTIFACT', 'TECH'] } }
+        ]
+    },
+    {
+        id: 'SHIP_GRAVEYARD',
+        trigger: (planet) => planet.type === 'GRAVEYARD',
+        title: "THE BONE HEAP",
+        desc: "Millions of ships, crushed together. The EVA team walks on the compressed hulls of civilizations. The salvage here is extraordinary — and the structure is unstable.",
+        choices: [
+            { text: "Strip Surface Hulls (Safe)", riskMod: 10, reward: { type: 'RESOURCE', val: 'METALS_HIGH' } },
+            { text: "Breach Deep Core (Extreme)", riskMod: 60, reward: { type: 'ITEM', tags: ['TECH', 'LORE'] } }
+        ]
+    },
+    {
+        id: 'THE_FREQUENCY',
+        trigger: (planet) => planet.type === 'SINGING',
+        title: "THE FREQUENCY",
+        desc: "The crew has stopped talking. They're smiling. The planet's harmonic is inducing dopamine production. Mira has closed her eyes.",
+        choices: [
+            { text: "Record & Depart (Safe, Crew Stress -1)", riskMod: 0, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Stay And Listen Longer (Risky)", riskMod: 30, reward: { type: 'ITEM', tags: ['ARTIFACT'] } }
         ]
     },
     {
@@ -167,6 +218,16 @@ const EVENTS = [
         choices: [
             { text: "Dampen Hull (Energy Cost)", riskMod: 10, reward: { type: 'RESOURCE', val: 'NOTHING' } },
             { text: "Record Song (Risky)", riskMod: 30, reward: { type: 'ITEM', tags: ['ARTIFACT'] } }
+        ]
+    },
+    {
+        id: 'DISTRESS_BEACON', // Fallback — MUST BE LAST
+        trigger: () => true,
+        title: "DISTRESS BEACON",
+        desc: "A faint repeating signal is coming from a debris field.",
+        choices: [
+            { text: "Scan & Leave (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Investigate Debris (Risky)", riskMod: 20, reward: { type: 'RESOURCE', val: 'METALS_HIGH' } }
         ]
     }
 ];

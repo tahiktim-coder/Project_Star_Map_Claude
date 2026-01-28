@@ -23,23 +23,23 @@
         <!-- Header: Ship Status -->
         <header class="status-bar" id="ui-header">
             <div class="ship-info">
-                <span class="vessel-name">VESSEL: EXODUS-1</span>
+                <span class="vessel-name">VESSEL: EXODUS-9</span>
+                <span class="sector-name" id="sector-name" style="color: var(--color-accent); font-size: 0.85em;">/// SECTOR 1: THE GRAVEYARD</span>
                 <span class="date" id="game-date">DATE: 2342.05.12</span>
             </div>
             <div class="resource-cluster">
                 <div class="res-item"><label>ENERGY</label><span id="res-energy">100%</span></div>
-                <div class="res-item"><label>O2</label><span id="res-oxygen">100%</span></div>
-                <div class="res-item"><label>METALS</label><span id="res-metals">0</span></div>
-                <div class="res-item"><label>PROBE</label><span id="res-probe">100%</span></div>
-                <div class="res-item"><label>CREW</label><span id="res-crew">5/5</span></div>
+                <div class="res-item"><label>SALVAGE</label><span id="res-salvage">50</span></div>
+                <div class="res-item"><label>RATIONS</label><span id="res-rations">20</span></div>
             </div>
-            <!-- Upgrades Button: Right of Audio -->
-            <button id="btn-fab" class="clickable" style="
-                position: absolute; top: 8px; right: 140px;
-                background: #000; border: 1px solid var(--color-accent);
-                color: var(--color-accent); font-family: var(--font-mono);
+            <!-- Testing Mode Button (Dev) - near Audio -->
+            <button id="btn-testing" class="clickable" style="
+                position: absolute; top: 8px; right: 110px;
+                background: #000; border: 1px solid #ff6600;
+                color: #ff6600; font-family: var(--font-mono);
                 padding: 2px 10px; font-size: 0.8em; cursor: pointer; z-index: 100;
-            ">UPGRADES</button>
+                opacity: 0.7;
+            ">TEST</button>
             <!-- Audio Toggle: Top Right Absolute -->
             <button id="btn-audio" class="clickable" style="
                 position: absolute; 
@@ -74,22 +74,31 @@
                         <div class="deck-sub">SCAN / BIO</div>
                     </div>
 
-                    <!-- Deck 4: Quarters (Rest) -->
+                    <!-- Deck 3: Quarters (Rest / Morgue) -->
                     <div class="ship-deck deck-quarters" data-room="quarters">
                         <div class="deck-label">CREW QUARTERS</div>
-                        <div class="deck-sub">REST / HEAL</div>
+                        <div class="deck-sub">REST / MORGUE</div>
+                        <div class="deck-crew-status" id="deck-crew-status">
+                            <!-- Dynamically populated with crew indicators -->
+                        </div>
                     </div>
 
-                    <!-- Deck 5: Cargo / Morgue (Storage) -->
+                    <!-- Deck 4: Cargo (Storage) -->
                     <div class="ship-deck deck-cargo" data-room="cargo">
                         <div class="deck-label">CARGO HOLD</div>
-                        <div class="deck-sub">STORAGE / MORGUE</div>
+                        <div class="deck-sub">SALVAGE / STORAGE</div>
                     </div>
 
-                    <!-- Deck 6: Engineering (Hardware) -->
+                    <!-- Deck 5: Engineering (Hardware) -->
                     <div class="ship-deck deck-engineering" data-room="engineering">
                         <div class="deck-label">ENGINEERING</div>
-                        <div class="deck-sub">PROBES / FUEL</div>
+                        <div class="deck-sub">PROBES / DRIVES</div>
+                    </div>
+
+                    <!-- Deck 6: Upgrades (Ship Improvements) -->
+                    <div class="ship-deck deck-upgrades" data-room="upgrades" id="btn-fab">
+                        <div class="deck-label">FABRICATION</div>
+                        <div class="deck-sub">UPGRADES</div>
                     </div>
                 </div>
             </div>
@@ -119,14 +128,27 @@
     </div>
 
     <!-- Scripts -->
-    <!-- Scripts -->
+    <!-- Initialize global test mode flag (used by chance-based systems) -->
+    <script>window.TEST_MODE = false;</script>
     <script src="src/data/Items.js"></script>
     <script src="src/data/Upgrades.js"></script> <!-- New Upgrades -->
     <script src="src/data/Events.js"></script>
+    <script src="src/data/CampfireEvents.js"></script>
+    <script src="src/data/ExodusDerelicts.js"></script>
     <script src="src/data/LootTables.js"></script>
+    <script src="src/data/SectorConfig.js"></script>
+    <script src="src/data/ExodusLogs.js"></script>
+    <script src="src/data/FailedColonyEncounters.js"></script>
+    <script src="src/data/DerelictEncounters.js"></script>
+    <script src="src/data/AnomalyEncounters.js"></script>
+    <script src="src/data/LateGamePOIs.js"></script>
+    <script src="src/data/StructureEncounter.js"></script>
     <script src="src/systems/ProbeSystem.js"></script>
     <script src="src/systems/AudioSystem.js"></script>
     <script src="src/systems/EndingSystem.js"></script>
+    <script src="src/systems/BarkSystem.js"></script>
+    <script src="src/systems/AuraSystem.js"></script>
+    <script src="src/systems/NarrativeModal.js"></script>
     <script src="src/views/OrbitView.js"></script>
     <script src="src/generators/PlanetGenerator.js"></script>
     <script src="src/views/NavView.js"></script>

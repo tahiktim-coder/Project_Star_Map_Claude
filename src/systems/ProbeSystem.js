@@ -66,17 +66,26 @@ class ProbeSystem {
             } else if (selected.type === 'RESOURCE') {
                 // RESOURCE FOUND
                 const amount = Math.floor(selected.min + Math.random() * (selected.max - selected.min));
+                // Try planet-type-aware thematic message
+                const thematic = this.getThematicMessage(planet, selected);
                 if (selected.val === 'METALS') {
                     reward = { type: 'RESOURCE', resource: 'metals', amount: amount };
-                    finalMessage = selected.log || `Extracted <span style="color:var(--color-primary)">${amount} Metals</span>.`;
+                    finalMessage = thematic
+                        ? `${thematic} <span style="color:var(--color-primary)">(+${amount} Salvage)</span>`
+                        : (selected.log || `Extracted <span style="color:var(--color-primary)">${amount} Salvage</span>.`);
                 } else {
                     reward = { type: 'RESOURCE', resource: 'energy', amount: amount };
-                    finalMessage = selected.log || `Siphoned <span style="color:var(--color-primary)">${amount} Energy</span> units.`;
+                    finalMessage = thematic
+                        ? `${thematic} <span style="color:var(--color-primary)">(+${amount} Energy)</span>`
+                        : (selected.log || `Siphoned <span style="color:var(--color-primary)">${amount} Energy</span> units.`);
                 }
             } else if (selected.type === 'LORE') {
-                // LORE FOUND
-                reward = { type: 'DATA', text: selected.text };
-                finalMessage = `DATA LOG: <span style="font-style:italic; color:#fff">${selected.text}</span>`;
+                // LORE FOUND — always give a small resource bonus alongside the data
+                const loreBonus = Math.floor(Math.random() * 6) + 5; // 5-10
+                const bonusType = Math.random() > 0.5 ? 'metals' : 'energy';
+                reward = { type: 'RESOURCE', resource: bonusType, amount: loreBonus, loreText: selected.text };
+                const bonusLabel = bonusType === 'metals' ? 'Salvage' : 'Energy';
+                finalMessage = `DATA LOG: <span style="font-style:italic; color:#fff">${selected.text}</span> <span style="color:var(--color-primary)">(+${loreBonus} ${bonusLabel} from signal decryption)</span>`;
             }
         }
 
@@ -109,6 +118,107 @@ class ProbeSystem {
         });
 
         return aggPool;
+    }
+
+    /**
+     * Planet-type-aware loot description text
+     * Returns a thematic message based on planet type + resource type
+     */
+    static getThematicMessage(planet, entry) {
+        if (!planet || !entry) return null;
+        const type = planet.type;
+        const isMetals = entry.val === 'METALS';
+
+        const THEMATIC = {
+            ROCKY: {
+                metals: ["Raw iron deposits pried from fractured bedrock.", "Mineral veins exposed by ancient tectonic shifts."],
+                energy: ["Trace radioactive isotopes harvested from surface dust.", "Piezoelectric crystals yielded a modest charge."]
+            },
+            GAS_GIANT: {
+                metals: ["Metallic hydrogen recovered from the upper atmosphere.", "Dense alloy particles filtered from cloud layers."],
+                energy: ["Electromagnetic storm energy siphoned successfully.", "Atmospheric turbines captured enormous current."]
+            },
+            ICE_WORLD: {
+                metals: ["Frozen ore cracked free from glacier formations.", "Sub-surface mineral deposits revealed beneath the permafrost."],
+                energy: ["Thermal gradient between ice layers converted to power.", "Cryogenic fusion trace detected and harvested."]
+            },
+            OCEANIC: {
+                metals: ["Seafloor nodules extracted from hydrothermal vents.", "Dissolved mineral concentrations filtered from ocean currents."],
+                energy: ["Tidal energy conversion yielded surplus power.", "Bio-luminescent organisms provided chemical energy."]
+            },
+            DESERT: {
+                metals: ["Sun-baked metal deposits scraped from dune formations.", "Ancient riverbeds revealed concentrated mineral sands."],
+                energy: ["Solar radiation collection exceeded projections.", "Heat differentials between day/night cycles converted efficiently."]
+            },
+            VOLCANIC: {
+                metals: ["Molten alloy samples collected from active flows.", "Volcanic glass fragments contained rare-earth elements."],
+                energy: ["Geothermal energy tapped from magma chamber proximity.", "Superheated vents provided enormous power reserves."]
+            },
+            TOXIC: {
+                metals: ["Corrosion-resistant alloys precipitated from acid rain.", "Metallic compounds isolated from toxic atmospheric soup."],
+                energy: ["Chemical energy harvested from exothermic atmospheric reactions.", "Volatile gas pockets ignited for controlled energy release."]
+            },
+            VITAL: {
+                metals: ["Bio-mineralized deposits found in fossilized reef structures.", "Natural alloy formations discovered beneath grasslands."],
+                energy: ["Bio-electric organisms yielded sustainable power.", "Photosynthetic efficiency captured as usable energy."]
+            },
+            BIO_MASS: {
+                metals: ["Calcified organic structures contained metallic compounds.", "The organism's circulatory system carries liquid metal."],
+                energy: ["Bio-electrical discharge from the planetary organism.", "Metabolic byproducts converted to enormous energy reserves."]
+            },
+            MECHA: {
+                metals: ["Salvaged armor plating from dormant war machines.", "Decommissioned weapons systems yielded refined alloys."],
+                energy: ["Power cells extracted from ancient combat chassis.", "Dormant reactor cores still held residual charge."]
+            },
+            SHATTERED: {
+                metals: ["Exposed planetary core fragments — pure dense metals.", "Gravitational compression created ultra-dense alloy deposits."],
+                energy: ["Core radiation leakage captured through shielded collectors.", "Gravitational anomaly converted to usable power."]
+            },
+            TERRAFORMED: {
+                metals: ["Precision-manufactured infrastructure components recovered.", "Perfectly preserved construction materials from terraforming arrays."],
+                energy: ["Self-sustaining power grid still operational after millennia.", "Terraforming reactors yielded clean, stable energy."]
+            },
+            CRYSTALLINE: {
+                metals: ["Crystal lattice structures contained embedded metals.", "Resonance mining shattered formations to reveal ore cores."],
+                energy: ["Harmonic crystals resonated into energy. Remarkable.", "Piezoelectric output from crystal formations exceeded all models."]
+            },
+            ROGUE: {
+                metals: ["Dense core materials accessible through the frozen surface.", "Ancient meteor impacts left rich metal deposits."],
+                energy: ["Residual thermal energy from the planet's dying core.", "Radioactive decay provided faint but usable power."]
+            },
+            TIDALLY_LOCKED: {
+                metals: ["Mineral deposits concentrated along the twilight boundary.", "Extreme temperature cycling crystallized rare metals at the terminator."],
+                energy: ["Permanent temperature differential yielded infinite thermal energy.", "Solar collection on the bright side exceeded all parameters."]
+            },
+            HOLLOW: {
+                metals: ["Shell material impossibly dense — unknown alloy composition.", "Interior scaffolding contained metals not on the periodic table."],
+                energy: ["The interior star radiates harvestable energy continuously.", "Unknown energy source pulses from the hollow core."]
+            },
+            SYMBIOTE_WORLD: {
+                metals: ["The biosphere offered mineral deposits willingly. Unsettling.", "Bio-manufactured alloys grew from the soil as we watched."],
+                energy: ["The planet converted our waste heat into gift energy. It wants us to stay.", "Bio-electric tendrils connected to our collectors unprompted."]
+            },
+            MIRROR: {
+                metals: ["The reflective surface is a perfect metallic alloy — samples taken.", "Sub-surface excavation revealed recursive mirror-metal layers."],
+                energy: ["Our own energy signature reflected back, amplified. Impossible physics.", "Solar energy bounced infinitely between surface layers."]
+            },
+            GRAVEYARD: {
+                metals: ["Stripped hull plating from a crushed freighter.", "Compressed wreckage yielded dense salvageable alloys.", "Ship graveyard: millions of tons of recyclable metal."],
+                energy: ["Dead reactor cores still held trace power.", "Emergency batteries from a thousand ships — most still charged.", "Power conduits from an ancient vessel still flickered with current."]
+            },
+            SINGING: {
+                metals: ["Resonance-hardened minerals formed by millennia of harmonic vibration.", "The singing crystallized nearby metals into pure formations."],
+                energy: ["Harmonic frequencies converted directly to electrical charge.", "The planet's song IS energy — we captured a chorus.", "Sound-to-energy conversion yielded unprecedented output."]
+            }
+        };
+
+        const typeMessages = THEMATIC[type];
+        if (!typeMessages) return null;
+
+        const messages = isMetals ? typeMessages.metals : typeMessages.energy;
+        if (!messages || messages.length === 0) return null;
+
+        return messages[Math.floor(Math.random() * messages.length)];
     }
 
     // Utility for weighted random choice

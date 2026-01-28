@@ -6,13 +6,72 @@ class AudioSystem {
         this.masterGain.gain.value = 0; // Start silenced
         this.masterGain.connect(this.ctx.destination);
         this.initialized = false;
+
+        // Background music
+        this.bgMusic = null;
+        this.bgMusicGain = null;
+        this.musicVolume = 0.15; // Lower than SFX
     }
 
     toggleMute() {
         this.muted = !this.muted;
         const newVol = this.muted ? 0 : 0.3;
         this.masterGain.gain.setValueAtTime(newVol, this.ctx.currentTime);
+
+        // Also toggle music (HTML Audio element)
+        if (this.bgMusic && this.bgMusic.volume !== undefined) {
+            this.bgMusic.volume = this.muted ? 0 : this.musicVolume;
+        }
+
+        // Start music on first unmute
+        if (!this.muted && !this.bgMusic) {
+            this.startBackgroundMusic();
+        }
+
         return this.muted;
+    }
+
+    /**
+     * Load and play background music on loop
+     * Uses HTML Audio element for file:// protocol compatibility
+     */
+    startBackgroundMusic() {
+        if (this.bgMusic) return; // Already playing
+
+        try {
+            // Use HTML Audio element - works with file:// protocol
+            this.bgMusic = new Audio('music/Space_Project_Background.mp3');
+            this.bgMusic.loop = true;
+            this.bgMusic.volume = this.muted ? 0 : this.musicVolume;
+
+            // Handle autoplay restrictions
+            const playPromise = this.bgMusic.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('Background music started');
+                }).catch(e => {
+                    console.warn('Music autoplay blocked, will retry on interaction:', e);
+                    // Retry on next user interaction
+                    const retryPlay = () => {
+                        this.bgMusic.play().catch(() => {});
+                        document.body.removeEventListener('click', retryPlay);
+                    };
+                    document.body.addEventListener('click', retryPlay);
+                });
+            }
+        } catch (e) {
+            console.warn('Could not load background music:', e);
+        }
+    }
+
+    /**
+     * Set music volume (0-1)
+     */
+    setMusicVolume(vol) {
+        this.musicVolume = Math.max(0, Math.min(1, vol));
+        if (this.bgMusic && !this.muted) {
+            this.bgMusic.volume = this.musicVolume;
+        }
     }
 
     // ... (init remains same) ...
@@ -83,8 +142,27 @@ class AudioSystem {
         window.addEventListener('req-warp', () => this.sfxWarp());
         window.addEventListener('log-updated', (e) => {
             if (e.detail?.message?.includes("WARNING")) this.sfxError();
+            else if (e.detail?.message?.includes("CRITICAL")) this.sfxCritical();
+            else if (e.detail?.message?.includes("A.U.R.A.")) this.sfxAura();
             else this.playTone(600, 'square', 0.05, 0.1);
         });
+
+        // Additional game events
+        window.addEventListener('req-action-anomaly', () => this.sfxAnomaly());
+        window.addEventListener('sector-entered', () => this.sfxSectorEnter());
+        window.addEventListener('colony-established', () => this.sfxVictory());
+        window.addEventListener('hud-updated', () => this.sfxTick());
+        window.addEventListener('aura-vent-warning', () => this.sfxAlarm());
+        window.addEventListener('req-action-colony-site', () => this.sfxDiscovery());
+        window.addEventListener('req-action-exodus', () => this.sfxDiscovery());
+        window.addEventListener('game-over', (e) => {
+            if (e.detail?.type === 'COLONY_SUCCESS') this.sfxVictory();
+            else this.sfxDefeat();
+        });
+
+        // Crew events
+        window.addEventListener('crew-death', () => this.sfxCrewDeath());
+        window.addEventListener('crew-injury', () => this.sfxCrewInjury());
     }
 
     // --- SYNTH GEN ---
@@ -147,6 +225,212 @@ class AudioSystem {
     sfxError() {
         // Buzz
         this.playTone(100, 'sawtooth', 0.5, 0.2);
+    }
+
+    sfxInteract() {
+        // UI click/interact sound
+        this.playTone(600, 'sine', 0.05, 0.1);
+    }
+
+    sfxTeleport() {
+        // Weird warping sound for anomaly teleport
+        if (!this.initialized) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(2000, this.ctx.currentTime + 0.3);
+        osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.8);
+
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.0);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 1.0);
+    }
+
+    sfxHorror() {
+        // Creepy low drone for cosmic horror moments
+        if (!this.initialized) return;
+        const osc = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc2.type = 'sine';
+        osc.frequency.value = 40;
+        osc2.frequency.value = 42; // Slight detune for unsettling beat
+
+        osc.connect(gain);
+        osc2.connect(gain);
+        gain.connect(this.masterGain);
+
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 3.0);
+
+        osc.start();
+        osc2.start();
+        osc.stop(this.ctx.currentTime + 3.0);
+        osc2.stop(this.ctx.currentTime + 3.0);
+    }
+
+    sfxAnomaly() {
+        // Eerie pulsing tone for anomaly encounters
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+
+        // Create wobbling effect
+        const osc = this.ctx.createOscillator();
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        const mainGain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.value = 300;
+        lfo.type = 'sine';
+        lfo.frequency.value = 4; // 4Hz wobble
+
+        lfoGain.gain.value = 50; // Wobble amount
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+
+        osc.connect(mainGain);
+        mainGain.connect(this.masterGain);
+
+        mainGain.gain.setValueAtTime(0.15, now);
+        mainGain.gain.linearRampToValueAtTime(0, now + 1.5);
+
+        osc.start(now);
+        lfo.start(now);
+        osc.stop(now + 1.5);
+        lfo.stop(now + 1.5);
+    }
+
+    sfxSectorEnter() {
+        // Deep "arrival" sound - descending majesty
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+
+        // Bass note
+        this.playTone(80, 'sine', 1.0, 0.15);
+        // Mid sweep
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.8);
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0, now + 1.0);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 1.0);
+    }
+
+    sfxTick() {
+        // Very subtle UI tick (quieter than standard)
+        if (!this.initialized) return;
+        this.playTone(1000, 'sine', 0.02, 0.02);
+    }
+
+    sfxAlarm() {
+        // Urgent alarm sound
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+
+        // Two-tone alarm pattern
+        for (let i = 0; i < 4; i++) {
+            const t = now + i * 0.3;
+            this.playToneAt(800, 'square', 0.1, 0.15, t);
+            this.playToneAt(600, 'square', 0.1, 0.15, t + 0.15);
+        }
+    }
+
+    sfxDiscovery() {
+        // Positive discovery chime
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+
+        // Ascending notes (C-E-G)
+        this.playToneAt(523.25, 'sine', 0.15, 0.1, now);
+        this.playToneAt(659.25, 'sine', 0.15, 0.1, now + 0.1);
+        this.playToneAt(783.99, 'sine', 0.3, 0.12, now + 0.2);
+    }
+
+    sfxCritical() {
+        // Critical warning - deeper, more urgent
+        if (!this.initialized) return;
+        this.playTone(80, 'sawtooth', 0.4, 0.25);
+        setTimeout(() => this.playTone(80, 'sawtooth', 0.4, 0.25), 200);
+    }
+
+    sfxAura() {
+        // A.U.R.A. speaking - subtle digital chirp
+        if (!this.initialized) return;
+        this.playTone(1200, 'sine', 0.05, 0.05);
+        setTimeout(() => this.playTone(1400, 'sine', 0.03, 0.04), 50);
+    }
+
+    sfxCrewDeath() {
+        // Somber low tone for crew death
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+
+        // Descending minor chord
+        this.playToneAt(220, 'sine', 1.5, 0.1, now);
+        this.playToneAt(261.63, 'sine', 1.5, 0.08, now + 0.1);
+        this.playToneAt(311.13, 'sine', 1.5, 0.06, now + 0.2); // Minor third
+    }
+
+    sfxCrewInjury() {
+        // Alert sound for injury
+        if (!this.initialized) return;
+        this.playTone(300, 'triangle', 0.3, 0.15);
+        setTimeout(() => this.playTone(250, 'triangle', 0.2, 0.1), 150);
+    }
+
+    sfxDefeat() {
+        // Game over defeat - descending doom
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 3.0);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0, now + 3.0);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 3.0);
+    }
+
+    // Helper: play tone at specific time
+    playToneAt(freq, type, duration, vol, time) {
+        if (!this.initialized) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, time);
+
+        gain.gain.setValueAtTime(vol, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(time);
+        osc.stop(time + duration);
     }
 }
 
