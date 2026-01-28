@@ -40,7 +40,7 @@ class AudioSystem {
 
         try {
             // Use HTML Audio element - works with file:// protocol
-            this.bgMusic = new Audio('music/Space_Project_Background.mp3');
+            this.bgMusic = new Audio('Music/Space_Project_Background.mp3');
             this.bgMusic.loop = true;
             this.bgMusic.volume = this.muted ? 0 : this.musicVolume;
 
