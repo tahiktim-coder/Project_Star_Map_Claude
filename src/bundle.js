@@ -917,6 +917,13 @@ class App {
     }
 
     showCampfireEvent(onComplete) {
+        // TEST_MODE: Skip campfire events entirely for faster testing
+        if (window.TEST_MODE) {
+            this.state.addLog("[TEST MODE] Skipping campfire event...");
+            onComplete();
+            return;
+        }
+
         // Find eligible campfire events for current sector transition
         const fromSector = this.state.currentSector;
         const toSector = fromSector + 1;

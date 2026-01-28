@@ -1,5 +1,84 @@
 class EndingSystem {
 
+    /**
+     * Planet viability tiers - determines base success chance
+     * EXCELLENT: EDEN, TERRAFORMED, VITAL with good conditions
+     * GOOD: OCEANIC, SYMBIOTE_WORLD, SINGING with breathable atmo
+     * MARGINAL: Most planets with survivable conditions
+     * POOR: Harsh planets (ICE, DESERT extreme temps, TOXIC, etc.)
+     * IMPOSSIBLE: GAS_GIANT surface, SHATTERED without tech, etc.
+     */
+    static getPlanetViability(planet, state) {
+        const type = planet.type;
+        const temp = planet.metrics?.temp || 20;
+        const gravity = planet.metrics?.gravity || 1.0;
+        const atmo = planet.atmosphere;
+        const sector = state.currentSector || 1;
+
+        // Impossible planets - cannot colonize at all
+        const impossibleTypes = ['STRUCTURE', 'WRONG_PLACE'];
+        if (impossibleTypes.includes(type)) return 'IMPOSSIBLE';
+
+        // GAS_GIANT requires special tech
+        if (type === 'GAS_GIANT' && !state.upgrades?.includes('fuel_scoop')) return 'IMPOSSIBLE';
+
+        // SHATTERED requires stabilizer or engineer
+        const hasEng = state.crew.some(c => c.tags?.includes('ENGINEER') && c.status !== 'DEAD');
+        if (type === 'SHATTERED' && !hasEng && !state.upgrades?.includes('stabilizer_core')) return 'IMPOSSIBLE';
+
+        // Excellent tier - paradise worlds
+        if (type === 'EDEN') return 'EXCELLENT';
+        if (type === 'TERRAFORMED') return 'EXCELLENT';
+        if (type === 'VITAL' && temp >= 10 && temp <= 35 && atmo === 'BREATHABLE') return 'EXCELLENT';
+
+        // Good tier - favorable conditions
+        if (type === 'SYMBIOTE_WORLD') return 'GOOD';
+        if (type === 'SINGING') return 'GOOD';
+        if (type === 'OCEANIC' && temp >= 0 && temp <= 40) return 'GOOD';
+        if (type === 'VITAL') return 'GOOD';
+        if (type === 'FUNGAL' && state.crew.some(c => c.tags?.includes('MEDIC') && c.status !== 'DEAD')) return 'GOOD';
+
+        // Poor tier - harsh conditions, high failure chance
+        const poorTypes = ['VOLCANIC', 'TOXIC', 'RADIATION_BELT', 'SULFUR'];
+        if (poorTypes.includes(type)) return 'POOR';
+        if (type === 'ICE_WORLD' && temp < -100) return 'POOR';
+        if (type === 'DESERT' && temp > 80) return 'POOR';
+        if (type === 'STORM_WORLD') return 'POOR';
+        if (gravity > 2.0) return 'POOR';
+        if (temp < -100 || temp > 150) return 'POOR';
+        if (atmo === 'CORROSIVE' || atmo === 'TOXIC') return 'POOR';
+
+        // Marginal tier - everything else
+        return 'MARGINAL';
+    }
+
+    /**
+     * Calculate colony success chance based on viability and sector
+     * Early sectors with poor planets = very likely failure
+     */
+    static getSuccessChance(viability, sector) {
+        const baseChances = {
+            'EXCELLENT': 0.95,
+            'GOOD': 0.80,
+            'MARGINAL': 0.60,
+            'POOR': 0.30,
+            'IMPOSSIBLE': 0.0
+        };
+
+        let chance = baseChances[viability] || 0.5;
+
+        // Sector modifier - early sectors penalize poor choices heavily
+        if (sector <= 2) {
+            if (viability === 'POOR') chance = 0.10; // 10% in S1-S2
+            if (viability === 'MARGINAL') chance = 0.40; // 40% in S1-S2
+        } else if (sector >= 4) {
+            // Late sectors - you've made it far, slight bonus
+            chance = Math.min(0.95, chance + 0.10);
+        }
+
+        return chance;
+    }
+
     static generateOutcome(planet, state) {
         // 1. Analyze State
         const type = planet.type;
@@ -34,6 +113,45 @@ class EndingSystem {
         let success = true;
         let title = "UNKNOWN";
         let acts = [];
+
+        // === NEW: VIABILITY CHECK ===
+        // Check if this planet is even viable for colonization
+        const viability = this.getPlanetViability(planet, state);
+        const successChance = this.getSuccessChance(viability, state.currentSector || 1);
+
+        // Roll for viability-based failure (before other checks)
+        if (viability === 'IMPOSSIBLE') {
+            success = false;
+            title = "IMPOSSIBLE SETTLEMENT";
+            acts.push(`Attempting to establish a colony on ${type.replace('_', ' ')} was never possible. The conditions here are beyond any technology humanity possesses. The crew realized their mistake too late.`);
+            return { success, title, text: acts.join("<br><br>") };
+        }
+
+        // Early sector + poor planet = likely failure
+        if (viability === 'POOR' && state.currentSector <= 2 && Math.random() > successChance) {
+            success = false;
+            const failureReasons = {
+                'ICE_WORLD': `At ${temp}°C, even our best insulation wasn't enough. The cold crept in through microscopic cracks, turning our breath to ice crystals. We tried to dig deeper, but the permafrost fought back. By winter — if you can call it that, when it's always winter — half the crew was gone.`,
+                'VOLCANIC': `The tectonic activity was worse than the scans suggested. The ground split open during our second month, swallowing Module 3 and everyone inside. We relocated. It happened again. And again. This planet doesn't want us here.`,
+                'TOXIC': `The atmospheric processors couldn't keep up. The toxic compounds ate through the seals faster than we could repair them. We sealed ourselves in smaller and smaller spaces until there was nowhere left to seal.`,
+                'DESERT': `${temp}°C during the day. The solar panels melted. The water recyclers overheated. We went underground, but even there, the heat followed. Dehydration took us one by one.`,
+                'STORM_WORLD': `The storms never stopped. We built underground, but the flooding was relentless. We built on hills, but the winds tore everything apart. There was no safe place on this world.`,
+                'RADIATION_BELT': `The radiation was invisible but constant. Our dosimeters screamed warnings we couldn't afford to heed. By the time the first cancers appeared, everyone had already absorbed lethal doses.`,
+                'SULFUR': `The sulfuric atmosphere corroded everything. Metal, plastic, flesh — it didn't discriminate. We lasted longer than we should have. Not long enough.`
+            };
+            title = "THE DESPERATE GAMBLE";
+            acts.push(failureReasons[type] || `This world was hostile from the start. We should have kept searching, but desperation makes fools of us all. The colony lasted ${Math.floor(Math.random() * 24) + 3} months before the end.`);
+            acts.push(`<br><br><span style="color: #ff6666; font-style: italic;">Sector ${state.currentSector} was too early to settle on a ${viability.toLowerCase()} world. Better planets awaited further along the corridor.</span>`);
+            return { success, title, text: acts.join("<br><br>") };
+        }
+
+        // Marginal planet in early sector - still risky
+        if (viability === 'MARGINAL' && state.currentSector <= 2 && Math.random() > successChance) {
+            success = false;
+            title = "NOT QUITE ENOUGH";
+            acts.push(`This world could have worked. With better preparation, more resources, more time — it could have been home. But we arrived broken and desperate, and the planet offered no charity. The margin between survival and extinction was razor-thin. We fell on the wrong side.`);
+            return { success, title, text: acts.join("<br><br>") };
+        }
 
         // --- PRELUDE: WRONG PLACE SURVIVORS ---
         if (wrongPlaceSurvivors > 0) {
