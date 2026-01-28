@@ -120,6 +120,7 @@ const EXODUS_ENCOUNTERS = [
     },
 
     // --- 3. CRYO SURVIVORS: Living humans in cryosleep ---
+    // UPDATED: No "join crew" option - we don't have cryo tech to wake them properly
     {
         id: 'EXODUS_CRYO',
         weight: 10,
@@ -128,60 +129,29 @@ const EXODUS_ENCOUNTERS = [
         context: (shipName) => `The ${shipName}'s power grid is barely functional — diverted entirely to the cryo bay. Three pods. Green status lights. Living heartbeats on the monitor. They've been asleep for decades.`,
         dialogue: [
             { speaker: 'Tech Mira', text: "They're alive. Vitals are stable, but the power cells are at 2%. Another month and they'd have died in their sleep." },
-            { speaker: 'Dr. Aris', text: "We have to wake them. We can't just leave them here." },
-            { speaker: 'Spc. Vance', text: "Three more mouths. We can barely feed the five we have." },
+            { speaker: 'Dr. Aris', text: "We don't have the equipment to wake them safely. Cryo revival requires specialized medical bays we don't have." },
+            { speaker: 'Spc. Vance', text: "So we just... leave them? Or..." },
             { speaker: 'Eng. Jaxon', text: "Those cryo batteries though... each one holds enough charge for 70% of our reserves." }
         ],
         choices: [
             {
-                text: "Attempt revival",
-                desc: "-3 Rations, 60% chance: 1 survivor joins crew. 40% chance: none survive.",
+                text: "Download their logs, leave them sleeping",
+                desc: "+15 Salvage (data crystals). Lore recovered. Crew respects the decision.",
                 effect: (state) => {
-                    state.rations = Math.max(0, state.rations - 3);
+                    state.salvage = Math.min(state.maxSalvage, state.salvage + 15);
                     state.crew.forEach(c => {
                         if (c.status !== 'DEAD' && c.stress > 0) c.stress = Math.max(0, c.stress - 1);
                     });
-
-                    // 60% chance of at least one survivor
-                    if (Math.random() < 0.6) {
-                        const sleeperNames = ['Lt. Vasquez', 'Dr. Kenji', 'Eng. Priya', 'Spc. Okonkwo', 'Tech Reyes', 'Med. Lindqvist'];
-                        const sleeperRoles = [
-                            { tag: 'SECURITY', personality: 'PARANOID' },
-                            { tag: 'SPECIALIST', personality: 'CURIOUS' },
-                            { tag: 'ENGINEER', personality: 'CYNICAL' },
-                            { tag: 'MEDIC', personality: 'HOPEFUL' }
-                        ];
-                        const availableRoles = sleeperRoles.filter(r => !state.crew.some(c => c.tags.includes(r.tag) && c.status !== 'DEAD'));
-
-                        const name = sleeperNames[Math.floor(Math.random() * sleeperNames.length)];
-                        const role = availableRoles.length > 0 ? availableRoles[Math.floor(Math.random() * availableRoles.length)] : { tag: 'CREW', personality: 'HOPEFUL' };
-
-                        const newCrew = {
-                            id: `sleeper_${Date.now()}`,
-                            name: name,
-                            role: role.tag === 'SECURITY' ? 'Security' : role.tag === 'MEDIC' ? 'Medical' : role.tag === 'ENGINEER' ? 'Engineer' : role.tag === 'SPECIALIST' ? 'Specialist' : 'Crew',
-                            status: 'HEALTHY',
-                            stress: 2, // Wake up very stressed
-                            tags: [role.tag, 'SLEEPER'],
-                            personality: role.personality,
-                            portrait: Math.random() > 0.5 ? 'M_6' : 'F_6'
-                        };
-                        state.crew.push(newCrew);
-                        state.addLog(`${name} survives revival and joins the crew! (${newCrew.role})`);
-                        state.addLog("The other two pods failed during the revival sequence. Their faces were peaceful.");
-                        state.addLog("EXODUS LOG: '...the sky turned copper three days before launch. They said it was atmospheric copper oxide. We knew it was fire.'");
-
-                        if (typeof AuraSystem !== 'undefined') AuraSystem.adjustEthics(1, 'Saved a life from cryo');
-                        return `One sleeper survived: ${name} joins the crew! Two pods failed. (-3 Rations, +1 Crew)`;
-                    } else {
-                        // All three die
-                        state.addLog("The revival sequence fails. One by one, the vital signs flatline.");
-                        state.addLog("Dr. Aris: \"The cryo damage was too extensive. Decades of micro-failures. They never had a chance.\"");
-                        state.crew.forEach(c => {
-                            if (c.status !== 'DEAD') c.stress = Math.min(3, (c.stress || 0) + 1);
-                        });
-                        return "Revival failed. All three sleepers lost. The crew is shaken. (-3 Rations, all crew +1 Stress)";
-                    }
+                    state._colonyKnowledge = (state._colonyKnowledge || 0) + 1;
+                    const loreTexts = [
+                        "CRYO LOG: '...the sky turned copper three days before launch. They said it was atmospheric copper oxide. We knew it was fire.'",
+                        "CRYO LOG: '...I volunteered for the long sleep because I couldn't watch Earth die. Cowardice or self-preservation? Does it matter now?'",
+                        "CRYO LOG: '...my children's faces are the last thing I remember. I hope whoever finds us tells them we tried.'"
+                    ];
+                    state.addLog(loreTexts[Math.floor(Math.random() * loreTexts.length)]);
+                    state.addLog("We copied their memories to our archives. They'll sleep on, dreaming of an Earth that no longer exists.");
+                    if (typeof AuraSystem !== 'undefined') AuraSystem.adjustEthics(1, 'Preserved the sleepers and their memories');
+                    return "Logs recovered. We leave the pods humming. It's the hardest kind of mercy — hope without promise. (+15 Salvage, +Colony Knowledge)";
                 }
             },
             {
@@ -193,18 +163,28 @@ const EXODUS_ENCOUNTERS = [
                         if (c.status !== 'DEAD') c.stress = Math.min(3, (c.stress || 0) + 1);
                     });
                     state.addLog("Dr. Aris: \"You're killing them. You know that.\"");
+                    state.addLog("Cmdr. Kael: \"They were already dead. They just didn't know it yet.\"");
+                    if (typeof AuraSystem !== 'undefined') AuraSystem.adjustEthics(-2, 'Killed sleepers for power');
                     return "Cryo batteries extracted. +70 Energy. The green lights turn red, then dark.";
                 }
             },
             {
-                text: "Leave them sleeping",
-                desc: "No gain, no cost. We can't feed them, but we won't kill them.",
+                text: "Mercy kill — end their dreaming",
+                desc: "Quick, painless. +20 Salvage (pod components). Mixed crew reaction.",
                 effect: (state) => {
+                    state.salvage = Math.min(state.maxSalvage, state.salvage + 20);
+                    // Some crew approve, some don't
+                    const numStressed = Math.floor(Math.random() * 2) + 1;
+                    let stressedCount = 0;
                     state.crew.forEach(c => {
-                        if (c.status !== 'DEAD' && c.stress > 0) c.stress = Math.max(0, c.stress - 1);
+                        if (c.status !== 'DEAD' && stressedCount < numStressed) {
+                            c.stress = Math.min(3, (c.stress || 0) + 1);
+                            stressedCount++;
+                        }
                     });
-                    state.addLog("We leave the pods humming. It's the hardest kind of mercy — hope without promise.");
-                    return "We sealed the bay and left. No one on the crew says a word. All crew -1 Stress.";
+                    state.addLog("Dr. Aris initiates the shutdown sequence. The heartbeats slow, then stop.");
+                    state.addLog("Spc. Vance: \"Better than waking up alone in a dead ship. Better than slowly freezing when the power fails.\"");
+                    return "The sleepers pass peacefully. Pod components salvaged. +20 Salvage. Some crew are disturbed.";
                 }
             }
         ]

@@ -2748,24 +2748,52 @@ You are home.`
     }
 
     resolveEvaOutcome(choice, baseRisk) {
-        const totalRisk = baseRisk + choice.riskMod;
+        const planet = this.state.currentSystem;
+        let totalRisk = baseRisk + choice.riskMod;
         const roll = Math.random() * 100;
         let logMsg = "";
 
+        // === PREDATORY PLANET SPECIAL HANDLING ===
+        // Predatory ecosystems are EXTREMELY dangerous - additional attack chance
+        const isPredatory = planet && planet.tags && planet.tags.includes('PREDATORY');
+        let predatoryAttack = false;
+
+        if (isPredatory) {
+            // 40% chance of predator attack regardless of other outcomes
+            if (Math.random() < 0.4) {
+                predatoryAttack = true;
+                this.state.addLog("⚠ PREDATOR ALERT: Hostile organisms detected approaching EVA team!");
+            }
+        }
+
         // 1. Hazard Check — only EVA team members (2 crew) can be hit
         const evaTeam = this.currentEvaTeam || [];
-        if (roll < totalRisk && evaTeam.length > 0) {
+        if ((roll < totalRisk || predatoryAttack) && evaTeam.length > 0) {
             // INJURY or DEATH — pick randomly from the 2-person EVA team
             const severity = Math.random() * 100;
             const targetCrew = evaTeam[Math.floor(Math.random() * evaTeam.length)];
 
-            if (severity < 10 || totalRisk > 40) { // 10% chance of death on hit, or if risk was super high
+            // Predatory attacks are more likely to be fatal
+            const deathThreshold = predatoryAttack ? 30 : 10;
+            const deathFromHighRisk = totalRisk > 40;
+
+            if (severity < deathThreshold || deathFromHighRisk) {
                 targetCrew.status = 'DEAD';
-                logMsg = `CATASTROPHE: ${targetCrew.name} KIA during operation. `;
+                if (predatoryAttack) {
+                    logMsg = `CATASTROPHE: ${targetCrew.name} killed by predatory organisms. The attack was coordinated. `;
+                    this.state.addLog(`The creatures didn't just kill — they hunted. ${targetCrew.name} never had a chance.`);
+                } else {
+                    logMsg = `CATASTROPHE: ${targetCrew.name} KIA during operation. `;
+                }
                 window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: targetCrew } }));
             } else {
                 targetCrew.status = 'INJURED';
-                logMsg = `INCIDENT: ${targetCrew.name} sustained heavy injuries. `;
+                if (predatoryAttack) {
+                    logMsg = `CRITICAL: ${targetCrew.name} mauled by predatory organisms. Emergency extraction! `;
+                    this.state.addLog(`Dr. Aris: "The wounds are severe. Whatever attacked them knew where to bite."`);
+                } else {
+                    logMsg = `INCIDENT: ${targetCrew.name} sustained heavy injuries. `;
+                }
                 window.dispatchEvent(new CustomEvent('crew-injury', { detail: { crew: targetCrew } }));
             }
             // Stress: EVA casualty witnessed — +1 stress to all living crew
@@ -2902,6 +2930,16 @@ You are home.`
                             <div style="font-weight: bold; color: #88ffcc;">Remember what you're fighting for</div>
                             <div style="font-size: 0.85em; color: #aaffcc;">+20 Energy (renewed purpose). All crew -1 stress.</div>
                         </button>
+                        <div style="border-top: 1px dashed #44ff88; margin: 15px 0; padding-top: 15px;">
+                            <button class="eden-choice eden-settle" data-action="settle" style="
+                                padding: 14px; text-align: left; width: 100%;
+                                border: 2px solid #ffcc00; background: linear-gradient(90deg, rgba(80,60,20,0.8), rgba(40,80,30,0.8));
+                                color: #ffffff; cursor: pointer; font-family: var(--font-mono);
+                            ">
+                                <div style="font-weight: bold; color: #ffcc00; font-size: 1.1em;">⬡ END THE JOURNEY — Settle Here</div>
+                                <div style="font-size: 0.85em; color: #aaffcc; margin-top: 5px;">This is what you came for. This is home now. <span style="color: #ffcc00;">[ENDS GAME]</span></div>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2952,6 +2990,21 @@ You are home.`
                         this.state.addLog(`${evaTeam[0].name}: "This is why we left Earth. This is what we're looking for."`);
                         this.state.addLog("Renewed purpose fills the crew. +20 Energy. All crew -1 stress.");
                         break;
+                    case 'settle':
+                        // End the journey - trigger colony ending immediately
+                        modal.remove();
+                        // Clear all stress and heal for the paradise ending
+                        this.state.crew.forEach(c => {
+                            if (c.status !== 'DEAD') {
+                                c.stress = 0;
+                                if (c.status === 'INJURED') c.status = 'HEALTHY';
+                            }
+                        });
+                        this.state.addLog(`${evaTeam[0].name}: "Commander... we're staying, aren't we?"`);
+                        this.state.addLog("Cmdr. Kael: \"Yes. The journey ends here. We're home.\"");
+                        // Trigger the colony ending
+                        this._executeColony(planet);
+                        return; // Don't continue to normal exit
                 }
 
                 planet.hasEva = true;
