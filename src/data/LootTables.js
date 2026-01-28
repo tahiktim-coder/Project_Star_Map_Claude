@@ -87,6 +87,58 @@ const LOOT_POOLS = {
     LORE_SIGNAL: [
         { type: 'LORE', text: "Audio: Rhythmic tapping matching prime numbers.", weight: 20 },
         { type: 'LORE', text: "Signal Origin: Deep underground facility detected.", weight: 20 }
+    ],
+
+    // === SIGNAL TYPE BONUS POOLS ===
+
+    // ALIEN SIGNALS — high-value alien tech (risky but rewarding)
+    ALIEN_SIGNAL_LOOT: [
+        { item: ITEMS.ALIEN_TRANSMITTER, weight: 20 },
+        { item: ITEMS.XENOTECH_COMPONENT, weight: 10 },
+        { item: ITEMS.SIGNAL_DECODER, weight: 5 },
+        { type: 'RESOURCE', val: 'ENERGY', min: 15, max: 30, weight: 25, log: "Unknown energy signature harvested from alien broadcast." },
+        { type: 'LORE', text: "Signal Fragment: '...we have been waiting...'", weight: 15 },
+        { type: 'LORE', text: "Audio decode: Coordinates to a location that doesn't exist on any chart.", weight: 10 }
+    ],
+
+    // ANCIENT RUINS — artifacts and knowledge
+    ANCIENT_RUINS_LOOT: [
+        { item: ITEMS.STAR_CHART_FRAGMENT, weight: 15 },
+        { item: ITEMS.CULTURAL_ARTIFACT, weight: 25 },
+        { item: ITEMS.ANCIENT_DATABASE, weight: 10 },
+        { item: ITEMS.TECH_FRAGMENT, weight: 15 },
+        { type: 'RESOURCE', val: 'METALS', min: 10, max: 25, weight: 20, log: "Salvaged rare alloys from ruined structure." },
+        { type: 'LORE', text: "Inscription: 'We built to last forever. We were wrong.'", weight: 10 },
+        { type: 'LORE', text: "Archive fragment: They saw what was coming. They couldn't stop it.", weight: 8 }
+    ],
+
+    // BIOLOGICAL SIGNALS — life-based resources
+    BIOLOGICAL_SIGNAL_LOOT: [
+        { item: ITEMS.BIO_SAMPLE_RARE, weight: 15 },
+        { item: ITEMS.SYMBIOTIC_CULTURE, weight: 5 },
+        { item: ITEMS.RADIOTROPHIC_FUNGUS, weight: 30 },
+        { item: ITEMS.FUNGUS_CULTURE, weight: 8 },
+        { item: ITEMS.FOOD_PACK, weight: 20, log: "Edible organisms harvested from biosphere." },
+        { type: 'LORE', text: "Bio-scan: Life here evolved to survive conditions we can barely imagine.", weight: 12 }
+    ],
+
+    // TECHNOLOGICAL SIGNALS — machine salvage
+    TECHNOLOGICAL_SIGNAL_LOOT: [
+        { item: ITEMS.SALVAGE_BEACON, weight: 20 },
+        { item: ITEMS.POWER_COUPLER, weight: 25 },
+        { item: ITEMS.REPAIR_DRONE, weight: 5 },
+        { item: ITEMS.IONIZED_BATTERY, weight: 20 },
+        { type: 'RESOURCE', val: 'METALS', min: 20, max: 40, weight: 25, log: "Advanced components stripped from automated systems." }
+    ],
+
+    // DERELICT SHIP — ship salvage focus
+    DERELICT_LOOT: [
+        { type: 'RESOURCE', val: 'METALS', min: 25, max: 50, weight: 35, log: "Hull plating and structural components recovered." },
+        { item: ITEMS.SCRAP_PLATING, weight: 25 },
+        { item: ITEMS.IONIZED_BATTERY, weight: 20 },
+        { item: ITEMS.CONDENSED_SALVAGE, weight: 10 },
+        { type: 'LORE', text: "Ship log fragment: Final entry. They knew the end was coming.", weight: 8 },
+        { item: ITEMS.FOOD_PACK, weight: 15, log: "Emergency rations recovered from crew quarters." }
     ]
 };
 
@@ -175,7 +227,7 @@ const LOOT_RULES = [
         msg_context: 'Debris field scavenging'
     },
 
-    // --- LORE TAGS ---
+    // --- LORE TAGS (legacy) ---
     {
         id: 'tag_ruins_lore',
         criteria: (p) => p.tags && p.tags.includes('ANCIENT_RUINS'),
@@ -187,5 +239,39 @@ const LOOT_RULES = [
         criteria: (p) => p.tags && p.tags.includes('ALIEN_SIGNALS'),
         pool: 'LORE_SIGNAL',
         msg_context: 'Signal triangulation'
+    },
+
+    // === SIGNAL TYPE BONUS LOOT ===
+    // These provide meaningful bonuses for planets with specific signals
+
+    {
+        id: 'alien_signal_bonus',
+        criteria: (p) => p.tags && p.tags.includes('ALIEN_SIGNALS'),
+        pool: 'ALIEN_SIGNAL_LOOT',
+        msg_context: 'Alien signal source investigation'
+    },
+    {
+        id: 'ancient_ruins_bonus',
+        criteria: (p) => p.tags && p.tags.includes('ANCIENT_RUINS'),
+        pool: 'ANCIENT_RUINS_LOOT',
+        msg_context: 'Ruins excavation'
+    },
+    {
+        id: 'biological_signal_bonus',
+        criteria: (p) => p.metrics && p.metrics.hasLife,
+        pool: 'BIOLOGICAL_SIGNAL_LOOT',
+        msg_context: 'Bio-signature sampling'
+    },
+    {
+        id: 'technological_signal_bonus',
+        criteria: (p) => p.metrics && p.metrics.hasTech,
+        pool: 'TECHNOLOGICAL_SIGNAL_LOOT',
+        msg_context: 'Tech-signature extraction'
+    },
+    {
+        id: 'derelict_ship_bonus',
+        criteria: (p) => p.tags && p.tags.includes('DERELICT'),
+        pool: 'DERELICT_LOOT',
+        msg_context: 'Derelict vessel scavenging'
     }
 ];

@@ -133,5 +133,137 @@ const ITEMS = {
         id: 'neural_link', name: 'Ancient Neural Link', type: 'REVIVAL_TECH', value: 250,
         desc: 'Spider-like mesh that overrides nervous system decay. [Use on corpse]',
         onUse: null // Special handling
+    },
+
+    // === SIGNAL TYPE SPECIAL ITEMS ===
+
+    // ALIEN SIGNAL items (high risk, high reward)
+    ALIEN_TRANSMITTER: {
+        id: 'alien_transmitter', name: 'Alien Transmitter', type: 'ARTIFACT', value: 150,
+        desc: 'A device broadcasting on frequencies that shouldn\'t exist. Grants +10 Energy but causes unease.',
+        onUse: (state) => {
+            state.energy = Math.min(100, state.energy + 10);
+            // Random crew gets +1 stress from the unnerving frequencies
+            const living = state.crew.filter(c => c.status !== 'DEAD');
+            if (living.length > 0 && Math.random() > 0.5) {
+                const target = living[Math.floor(Math.random() * living.length)];
+                target.stress = Math.min(3, target.stress + 1);
+                return `Energy harvested from alien frequencies. ${target.name} reports hearing whispers. (+10 Energy, +1 Stress)`;
+            }
+            return "Energy harvested from alien frequencies. The crew tries not to think about who sent them. (+10 Energy)";
+        }
+    },
+    XENOTECH_COMPONENT: {
+        id: 'xenotech', name: 'Xenotech Component', type: 'TECH', value: 200,
+        desc: 'Alien technology component. Can be integrated into ship systems for +20 Salvage worth of upgrades.',
+        onUse: (state) => {
+            state.salvage = Math.min(state.maxSalvage, state.salvage + 30);
+            return "Xenotech integrated into ship systems. Advanced alloys extracted. (+30 Salvage)";
+        }
+    },
+    SIGNAL_DECODER: {
+        id: 'signal_decoder', name: 'Signal Decoder', type: 'ARTIFACT', value: 120,
+        desc: 'Alien device that can decode nearby signals. Use to reveal hidden information about the current sector.',
+        onUse: (state) => {
+            // Reveal all unscanned planets in sector
+            if (state.sectorNodes) {
+                let revealed = 0;
+                state.sectorNodes.forEach(p => {
+                    if (!p.remoteScanned && !p.scanned) {
+                        p.remoteScanned = true;
+                        revealed++;
+                    }
+                });
+                if (revealed > 0) {
+                    return `Signal decoder activated. ${revealed} planet(s) remotely scanned for free!`;
+                }
+            }
+            return "Signal decoder activated. All planets in this sector already scanned.";
+        }
+    },
+
+    // ANCIENT RUINS items (lore + knowledge)
+    STAR_CHART_FRAGMENT: {
+        id: 'star_chart', name: 'Star Chart Fragment', type: 'ARTIFACT', value: 80,
+        desc: 'Ancient navigational data. Reduces warp costs by 5% for this session.',
+        onUse: (state) => {
+            state._warpDiscount = (state._warpDiscount || 0) + 5;
+            return `Ancient navigation algorithms integrated. Future warp costs reduced by 5%. (Total: -${state._warpDiscount}%)`;
+        }
+    },
+    CULTURAL_ARTIFACT: {
+        id: 'cultural_artifact', name: 'Cultural Artifact', type: 'ARTIFACT', value: 60,
+        desc: 'Object from a dead civilization. Contemplating their fate provides perspective.',
+        onUse: (state) => {
+            // Reduce stress for the whole crew by thinking about how their problems are small
+            let reduced = 0;
+            state.crew.forEach(c => {
+                if (c.status !== 'DEAD' && c.stress > 0) {
+                    c.stress = Math.max(0, c.stress - 1);
+                    reduced++;
+                }
+            });
+            return reduced > 0
+                ? `The crew reflects on the artifact's former owners. They too struggled. Somehow, that helps. (-1 Stress for ${reduced} crew)`
+                : "The artifact is fascinating, but no one needs perspective right now.";
+        }
+    },
+    ANCIENT_DATABASE: {
+        id: 'ancient_database', name: 'Ancient Database', type: 'LORE', value: 100,
+        desc: 'Intact data storage from a previous civilization. Contains valuable technical schematics.',
+        onUse: (state) => {
+            // Gives significant salvage as you decode the schematics
+            state.salvage = Math.min(state.maxSalvage, state.salvage + 25);
+            state.energy = Math.min(100, state.energy + 10);
+            return "Database decoded. Schematics for efficient power systems recovered. (+25 Salvage, +10 Energy)";
+        }
+    },
+
+    // BIOLOGICAL signal items (life = hope)
+    BIO_SAMPLE_RARE: {
+        id: 'bio_sample_rare', name: 'Rare Bio-Sample', type: 'CONSUMABLE', value: 90,
+        desc: 'Exotic biological specimen with remarkable healing properties. Heals one injured crew member.',
+        onUse: (state) => {
+            const injured = state.crew.filter(c => c.status === 'INJURED');
+            if (injured.length === 0) return "No injured crew to heal.";
+            const target = injured[0];
+            target.status = 'HEALTHY';
+            return `${target.name} treated with rare bio-compounds. They are now HEALTHY.`;
+        }
+    },
+    SYMBIOTIC_CULTURE: {
+        id: 'symbiotic_culture', name: 'Symbiotic Culture', type: 'LIVING', value: 120,
+        desc: 'Beneficial organism that bonds with crew. Reduces ration consumption. Passive: -1 ration consumption every 5 actions.',
+        onUse: null // Passive effect like fungus culture
+    },
+
+    // TECHNOLOGICAL signal items (machines = resources)
+    SALVAGE_BEACON: {
+        id: 'salvage_beacon', name: 'Salvage Beacon', type: 'TECH', value: 70,
+        desc: 'Automated beacon that locates nearby salvage. Use to get immediate salvage.',
+        onUse: (state) => {
+            const amount = Math.floor(Math.random() * 20) + 15; // 15-35 salvage
+            state.salvage = Math.min(state.maxSalvage, state.salvage + amount);
+            return `Salvage beacon activated. Automated drones recovered ${amount} salvage.`;
+        }
+    },
+    POWER_COUPLER: {
+        id: 'power_coupler', name: 'Power Coupler', type: 'TECH', value: 55,
+        desc: 'High-efficiency power transfer system. Converts to pure energy.',
+        onUse: (state) => {
+            state.energy = Math.min(100, state.energy + 25);
+            return "Power coupler interfaced with ship systems. +25 Energy.";
+        }
+    },
+    REPAIR_DRONE: {
+        id: 'repair_drone', name: 'Repair Drone', type: 'TECH', value: 150,
+        desc: 'Autonomous repair unit. Can repair a damaged deck.',
+        onUse: (state) => {
+            const damaged = Object.keys(state.decks).filter(d => !state.decks[d].operational);
+            if (damaged.length === 0) return "No damaged decks to repair.";
+            const deck = damaged[0];
+            state.decks[deck].operational = true;
+            return `Repair drone deployed. ${deck.toUpperCase()} deck restored to operational status.`;
+        }
     }
 };

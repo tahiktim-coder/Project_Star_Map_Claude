@@ -573,34 +573,10 @@ class App {
 
         window.addEventListener('hud-updated', () => this.updateHud());
 
-        // Audio Toggle & Volume Slider
+        // Audio Toggle - Click to show volume modal
         const btnAudio = document.getElementById('btn-audio');
-        const volumeSlider = document.getElementById('volume-slider');
         if (btnAudio) {
-            btnAudio.onclick = () => {
-                if (window.AudioSystem) {
-                    const isMuted = window.AudioSystem.toggleMute();
-                    btnAudio.textContent = isMuted ? "AUDIO: OFF" : "AUDIO: ON";
-                    btnAudio.style.opacity = isMuted ? "0.5" : "1";
-                    btnAudio.style.color = isMuted ? "var(--color-primary-dim)" : "var(--color-primary)";
-                    btnAudio.style.borderColor = isMuted ? "var(--color-primary-dim)" : "var(--color-primary)";
-                    // Show/hide volume slider
-                    if (volumeSlider) {
-                        volumeSlider.style.display = isMuted ? "none" : "block";
-                        volumeSlider.style.opacity = "1";
-                    }
-                }
-            };
-        }
-        if (volumeSlider) {
-            volumeSlider.oninput = () => {
-                const vol = parseInt(volumeSlider.value) / 100;
-                if (window.AudioSystem) {
-                    // Set both SFX master volume and music volume
-                    window.AudioSystem.masterGain.gain.setValueAtTime(vol * 0.3, window.AudioSystem.ctx.currentTime);
-                    window.AudioSystem.setMusicVolume(vol * 0.15);
-                }
-            };
+            btnAudio.onclick = () => this.showAudioModal();
         }
 
         // Testing Mode Toggle
@@ -2270,6 +2246,38 @@ You are home.`
 
             this.state.addLog("Detailed surface analysis complete. Resource data available.");
 
+            // === SIGNAL TYPE SCAN BONUSES ===
+            // Different signals provide different benefits when detected
+
+            // ALIEN SIGNALS: high risk but data valuable
+            if (planet.tags && planet.tags.includes('ALIEN_SIGNALS')) {
+                this.state.addLog("⚡ ALIEN SIGNAL SOURCE: Unknown transmission origin detected. Approach with caution.");
+                this.state.addLog("A.U.R.A.: \"The signal isn't random. It's a message. For whom, I cannot determine.\"");
+            }
+
+            // ANCIENT RUINS: knowledge and reduced EVA risk
+            if (planet.tags && planet.tags.includes('ANCIENT_RUINS')) {
+                this.state.addLog("📜 ANCIENT RUINS: Structural remnants detected. Archaeological value confirmed.");
+                // Small energy refund for ruins (ancient tech assists scanning)
+                this.state.energy = Math.min(100, this.state.energy + 1);
+                this.state.addLog("Ancient scanner arrays still partially functional. +1 Energy recovered.");
+            }
+
+            // BIOLOGICAL: life means potential food and lower danger
+            if (planet.metrics && planet.metrics.hasLife && !planet.tags?.includes('PREDATORY')) {
+                this.state.addLog("🌿 BIOLOGICAL SIGNATURES: Stable ecosystem detected. EVA conditions favorable.");
+            }
+
+            // TECHNOLOGICAL: salvage potential
+            if (planet.metrics && planet.metrics.hasTech) {
+                this.state.addLog("⚙ TECHNOLOGICAL SIGNATURES: Machine presence confirmed. High salvage potential.");
+            }
+
+            // DERELICT: ship salvage
+            if (planet.tags && planet.tags.includes('DERELICT')) {
+                this.state.addLog("🚀 DERELICT VESSEL: Non-Exodus ship wreckage detected. Investigate for salvage.");
+            }
+
             // Bark: crew reacts to scan results
             if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
                 window.BarkSystem.tryBark('AFTER_SCAN', this.state, { planet });
@@ -2607,18 +2615,68 @@ You are home.`
         modal.className = 'modal-overlay';
         modal.style.zIndex = '2000';
 
-        const riskBase = (planet.dangerLevel || 0) * 5 + 5; // Base risk 5% to 30%
+        // === SIGNAL TYPE RISK MODIFIERS ===
+        // Calculate base risk with signal type effects
+        let riskBase = (planet.dangerLevel || 0) * 5 + 5; // Base risk 5% to 30%
+        let signalModifiers = [];
+
+        // BIOLOGICAL signals reduce risk (life = stable environment)
+        if (planet.metrics && planet.metrics.hasLife) {
+            riskBase -= 5;
+            signalModifiers.push({ type: 'BIOLOGICAL', mod: -5, color: '#00ff66' });
+        }
+
+        // ALIEN SIGNALS increase risk (unknown = danger)
+        if (planet.tags && planet.tags.includes('ALIEN_SIGNALS')) {
+            riskBase += 10;
+            signalModifiers.push({ type: 'ALIEN SIGNAL', mod: +10, color: '#ff00ff' });
+        }
+
+        // ANCIENT RUINS slightly reduce risk (stable structures)
+        if (planet.tags && planet.tags.includes('ANCIENT_RUINS')) {
+            riskBase -= 3;
+            signalModifiers.push({ type: 'ANCIENT RUINS', mod: -3, color: '#ffcc00' });
+        }
+
+        // TECHNOLOGICAL signals reduce risk (machine-stable)
+        if (planet.metrics && planet.metrics.hasTech && !planet.tags?.includes('ALIEN_SIGNALS')) {
+            riskBase -= 5;
+            signalModifiers.push({ type: 'TECHNOLOGICAL', mod: -5, color: '#00ccff' });
+        }
+
+        // DERELICT ships increase risk slightly (structural instability)
+        if (planet.tags && planet.tags.includes('DERELICT')) {
+            riskBase += 5;
+            signalModifiers.push({ type: 'DERELICT', mod: +5, color: '#cc8800' });
+        }
+
+        // PREDATORY massively increases risk
+        if (planet.tags && planet.tags.includes('PREDATORY')) {
+            riskBase += 15;
+            signalModifiers.push({ type: 'PREDATORY', mod: +15, color: '#ff0000' });
+        }
+
+        // Clamp risk base to reasonable range
+        riskBase = Math.max(0, Math.min(50, riskBase));
 
         // Stress trait checks
         const isParanoid = this.state.hasActiveTrait('PARANOID');
         const isReckless = this.state.hasActiveTrait('RECKLESS');
         const recklessBlocksSafe = isReckless && Math.random() > 0.5; // 50% chance to block safe option
 
+        // Build signal modifier display string
+        const signalModDisplay = signalModifiers.length > 0
+            ? signalModifiers.map(s => `<span style="color: ${s.color};">${s.type}: ${s.mod > 0 ? '+' : ''}${s.mod}%</span>`).join(' | ')
+            : '';
+
         modal.innerHTML = `
             <div class="modal-content" style="border-color: var(--color-accent);">
                 <div class="modal-header" style="color: var(--color-accent);">/// EVA MISSION: ${event.title} ///</div>
                 <div style="padding: 20px; text-align: center;">
                     <p style="margin-bottom: 20px; font-style: italic;">"${event.desc}"</p>
+                    ${signalModDisplay ? `<div style="font-size: 0.75em; margin-bottom: 15px; padding: 8px; border: 1px dashed var(--color-primary-dim); background: rgba(0,0,0,0.5);">
+                        <span style="color: var(--color-text-dim);">SIGNAL ANALYSIS:</span> ${signalModDisplay}
+                    </div>` : ''}
                     ${isParanoid ? '<p style="font-size: 0.8em; color: #ff6666; margin-bottom: 10px;">Vance: "I\'m not risking anyone on something that dangerous."</p>' : ''}
                     ${recklessBlocksSafe ? '<p style="font-size: 0.8em; color: #ffaa00; margin-bottom: 10px;">Mira: "The safe option gets us nothing. I\'m going in."</p>' : ''}
 
@@ -3883,6 +3941,88 @@ You are home.`
             this.showFabricator();
             this.state.emitUpdates();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // AUDIO SETTINGS MODAL
+    // ═══════════════════════════════════════════════════════════════
+    showAudioModal() {
+        const isOn = window.AudioSystem && !window.AudioSystem.muted;
+        const currentVol = window.AudioSystem ? Math.round((window.AudioSystem.musicVolume / 0.15) * 100) : 30;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '3000';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: var(--color-primary); max-width: 350px; text-align: center;">
+                <div class="modal-header" style="display: flex; justify-content: space-between;">
+                    <span>/// AUDIO SETTINGS ///</span>
+                    <span class="close-modal" style="cursor: pointer;">[X]</span>
+                </div>
+                <div style="padding: 30px;">
+                    <div style="margin-bottom: 25px;">
+                        <button id="audio-toggle-btn" style="
+                            padding: 15px 40px;
+                            font-size: 1.2em;
+                            font-family: var(--font-mono);
+                            background: ${isOn ? 'var(--color-primary)' : '#333'};
+                            color: ${isOn ? '#000' : '#666'};
+                            border: 2px solid var(--color-primary);
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        ">${isOn ? 'AUDIO: ON' : 'AUDIO: OFF'}</button>
+                    </div>
+                    <div style="margin-bottom: 15px; color: var(--color-text-dim); font-size: 0.9em;">VOLUME</div>
+                    <div style="display: flex; align-items: center; gap: 15px; justify-content: center;">
+                        <span style="color: var(--color-text-dim);">🔈</span>
+                        <input type="range" id="modal-volume-slider" min="0" max="100" value="${currentVol}" style="
+                            width: 180px;
+                            height: 8px;
+                            cursor: pointer;
+                            accent-color: var(--color-primary);
+                        ">
+                        <span style="color: var(--color-text-dim);">🔊</span>
+                    </div>
+                    <div id="volume-display" style="margin-top: 10px; color: var(--color-primary); font-size: 1.1em;">${currentVol}%</div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const toggleBtn = modal.querySelector('#audio-toggle-btn');
+        const slider = modal.querySelector('#modal-volume-slider');
+        const volDisplay = modal.querySelector('#volume-display');
+        const headerBtn = document.getElementById('btn-audio');
+
+        toggleBtn.onclick = () => {
+            if (window.AudioSystem) {
+                const isMuted = window.AudioSystem.toggleMute();
+                toggleBtn.textContent = isMuted ? 'AUDIO: OFF' : 'AUDIO: ON';
+                toggleBtn.style.background = isMuted ? '#333' : 'var(--color-primary)';
+                toggleBtn.style.color = isMuted ? '#666' : '#000';
+                // Update header button
+                if (headerBtn) {
+                    headerBtn.textContent = isMuted ? "AUDIO: OFF" : "AUDIO: ON";
+                    headerBtn.style.opacity = isMuted ? "0.5" : "1";
+                    headerBtn.style.color = isMuted ? "var(--color-primary-dim)" : "var(--color-primary)";
+                    headerBtn.style.borderColor = isMuted ? "var(--color-primary-dim)" : "var(--color-primary)";
+                }
+            }
+        };
+
+        slider.oninput = () => {
+            const vol = parseInt(slider.value) / 100;
+            volDisplay.textContent = slider.value + '%';
+            if (window.AudioSystem) {
+                window.AudioSystem.masterGain.gain.setValueAtTime(vol * 0.3, window.AudioSystem.ctx.currentTime);
+                window.AudioSystem.setMusicVolume(vol * 0.15);
+            }
+        };
+
+        modal.querySelector('.close-modal').onclick = () => modal.remove();
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     }
 }
 

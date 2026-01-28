@@ -103,15 +103,17 @@ class NavView {
 
             node.addEventListener('mouseenter', () => {
                 node.style.zIndex = '20';
-                node.style.transform = 'translate(-50%, -50%) scale(1.5)'; // Pop effect
+                node.style.transform = 'translate(-50%, -50%) scale(1.3)'; // Smaller pop effect
                 if (label) {
                     label.style.opacity = '1';
                     label.style.fontWeight = 'bold';
                     label.style.textShadow = '0 0 10px var(--color-primary), 0 0 20px var(--color-primary)';
                     label.style.zIndex = '30';
-                    label.style.background = 'rgba(0, 0, 0, 0.9)';
-                    label.style.padding = '2px 6px';
-                    label.style.borderRadius = '2px';
+                    label.style.background = 'rgba(0, 0, 0, 0.95)';
+                    label.style.padding = '3px 8px';
+                    label.style.borderRadius = '3px';
+                    label.style.border = '1px solid rgba(255,255,255,0.2)';
+                    label.style.transform = 'translateY(5px)'; // Move label down on hover
                 }
             });
             node.addEventListener('mouseleave', () => {
@@ -124,6 +126,8 @@ class NavView {
                     label.style.zIndex = 'auto';
                     label.style.background = 'transparent';
                     label.style.padding = '0';
+                    label.style.border = 'none';
+                    label.style.transform = 'none';
                 }
             });
 
@@ -235,31 +239,32 @@ class NavView {
         };
 
         // Signal detection based on planet properties
+        // Each signal type now has gameplay effects!
         const detectSignals = (p) => {
             const signals = [];
             if (p.metrics?.hasLife || ['VITAL', 'BIO_MASS', 'SYMBIOTE_WORLD', 'SINGING'].includes(p.type)) {
-                signals.push({ type: 'BIOLOGICAL', color: '#00ff66' });
+                signals.push({ type: 'BIOLOGICAL', color: '#00ff66', effect: '-5% EVA risk, Bio loot' });
             }
             if (p.metrics?.hasTech || ['MECHA', 'TERRAFORMED', 'MIRROR'].includes(p.type)) {
-                signals.push({ type: 'TECHNOLOGICAL', color: '#00ccff' });
+                signals.push({ type: 'TECHNOLOGICAL', color: '#00ccff', effect: '-5% EVA risk, Tech loot' });
             }
             if (p.tags?.includes('WRECKAGE') || p.tags?.includes('EXODUS_WRECK')) {
-                signals.push({ type: 'WRECKAGE', color: '#ff8800' });
+                signals.push({ type: 'WRECKAGE', color: '#ff8800', effect: 'Extra salvage' });
             }
             if (p.tags?.includes('FAILED_COLONY')) {
-                signals.push({ type: 'COLONY RUINS', color: '#8888ff' });
+                signals.push({ type: 'COLONY RUINS', color: '#8888ff', effect: 'Story encounter' });
             }
             if (p.tags?.includes('ANCIENT_RUINS')) {
-                signals.push({ type: 'ANCIENT RUINS', color: '#ffcc00' });
+                signals.push({ type: 'ANCIENT RUINS', color: '#ffcc00', effect: '-3% EVA risk, Artifacts' });
             }
             if (p.tags?.includes('ALIEN_SIGNALS')) {
-                signals.push({ type: 'ALIEN SIGNAL', color: '#ff00ff' });
+                signals.push({ type: 'ALIEN SIGNAL', color: '#ff00ff', effect: '+10% EVA risk, Rare loot' });
             }
             if (p.tags?.includes('DERELICT')) {
-                signals.push({ type: 'DERELICT SHIP', color: '#cc8800' });
+                signals.push({ type: 'DERELICT SHIP', color: '#cc8800', effect: '+5% EVA risk, Ship salvage' });
             }
             if (p.tags?.includes('ANOMALY')) {
-                signals.push({ type: 'ANOMALY', color: '#ff00ff' });
+                signals.push({ type: 'ANOMALY', color: '#ff00ff', effect: 'Unknown effects' });
             }
             return signals;
         };
@@ -299,9 +304,14 @@ class NavView {
             signalsHtml = `
                 <div style="margin-top: 8px;">
                     <div style="color: var(--color-text-dim); margin-bottom: 5px; font-size: 0.85em;">SIGNALS DETECTED:</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
                         ${signals.length > 0
-                            ? signals.map(s => `<span style="background: ${s.color}22; color: ${s.color}; padding: 2px 6px; border: 1px solid ${s.color}; border-radius: 2px; font-size: 0.75em;">${s.type}</span>`).join('')
+                            ? signals.map(s => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; background: ${s.color}15; border: 1px solid ${s.color}44; padding: 3px 6px; border-radius: 2px;">
+                                    <span style="color: ${s.color}; font-size: 0.75em; font-weight: bold;">${s.type}</span>
+                                    <span style="color: ${s.color}; font-size: 0.65em; opacity: 0.8;">${s.effect}</span>
+                                </div>
+                            `).join('')
                             : '<span style="color: var(--color-text-dim); font-size: 0.8em;">NONE</span>'
                         }
                     </div>
