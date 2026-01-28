@@ -297,30 +297,47 @@ class GameState {
             }
         }
         if (this.rations === 0) {
-            // Kill 1 random living crew member
+            // Starvation: first max out stress, then kill if already at max
             const living = this.crew.filter(c => c.status !== 'DEAD');
             if (living.length > 0) {
-                const victim = living[Math.floor(Math.random() * living.length)];
-                victim.status = 'DEAD';
-                this.addLog(`CRITICAL: ${victim.name} has died of starvation.`);
-                // Dispatch crew death event for audio
-                window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: victim } }));
-                // Bark: crew reacts to death
-                if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
-                    window.BarkSystem.tryBark('CREW_DEATH', this, { crew: victim });
-                }
-                // A.U.R.A. death commentary
-                if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
-                    window.AuraSystem.tryComment('CREW_DEATH', this, true);
-                }
-                // Check if crew is now critically low (2 or less)
-                const remainingCrew = this.crew.filter(c => c.status !== 'DEAD').length;
-                if (remainingCrew <= 2 && remainingCrew > 0) {
-                    setTimeout(() => {
-                        if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
-                            window.AuraSystem.tryComment('FEW_CREW', this, true);
-                        }
-                    }, 800);
+                // Find crew who are already at max stress (3)
+                const maxStressedCrew = living.filter(c => (c.stress || 0) >= 3);
+
+                if (maxStressedCrew.length > 0) {
+                    // Kill one crew member who was already at max stress
+                    const victim = maxStressedCrew[Math.floor(Math.random() * maxStressedCrew.length)];
+                    victim.status = 'DEAD';
+                    this.addLog(`CRITICAL: ${victim.name} has died of starvation. Their body could take no more.`);
+                    // Dispatch crew death event for audio
+                    window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: victim } }));
+                    // Bark: crew reacts to death
+                    if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
+                        window.BarkSystem.tryBark('CREW_DEATH', this, { crew: victim });
+                    }
+                    // A.U.R.A. death commentary
+                    if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                        window.AuraSystem.tryComment('CREW_DEATH', this, true);
+                    }
+                    // Check if crew is now critically low (2 or less)
+                    const remainingCrew = this.crew.filter(c => c.status !== 'DEAD').length;
+                    if (remainingCrew <= 2 && remainingCrew > 0) {
+                        setTimeout(() => {
+                            if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                                window.AuraSystem.tryComment('FEW_CREW', this, true);
+                            }
+                        }, 800);
+                    }
+                } else {
+                    // No one at max stress yet - just max out everyone's stress
+                    this.addLog(`CRITICAL: No rations remaining. Crew starving.`);
+                    living.forEach(c => {
+                        c.stress = 3; // Max stress
+                    });
+                    this.addLog(`All crew stress maxed. Find food immediately or someone will die.`);
+                    // A.U.R.A. warning
+                    if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
+                        window.AuraSystem.tryComment('LOW_RESOURCES', this, true);
+                    }
                 }
             }
         }
@@ -552,14 +569,32 @@ class App {
 
         window.addEventListener('hud-updated', () => this.updateHud());
 
-        // Audio Toggle
+        // Audio Toggle & Volume Slider
         const btnAudio = document.getElementById('btn-audio');
+        const volumeSlider = document.getElementById('volume-slider');
         if (btnAudio) {
             btnAudio.onclick = () => {
                 if (window.AudioSystem) {
                     const isMuted = window.AudioSystem.toggleMute();
                     btnAudio.textContent = isMuted ? "AUDIO: OFF" : "AUDIO: ON";
                     btnAudio.style.opacity = isMuted ? "0.5" : "1";
+                    btnAudio.style.color = isMuted ? "var(--color-primary-dim)" : "var(--color-primary)";
+                    btnAudio.style.borderColor = isMuted ? "var(--color-primary-dim)" : "var(--color-primary)";
+                    // Show/hide volume slider
+                    if (volumeSlider) {
+                        volumeSlider.style.display = isMuted ? "none" : "block";
+                        volumeSlider.style.opacity = "1";
+                    }
+                }
+            };
+        }
+        if (volumeSlider) {
+            volumeSlider.oninput = () => {
+                const vol = parseInt(volumeSlider.value) / 100;
+                if (window.AudioSystem) {
+                    // Set both SFX master volume and music volume
+                    window.AudioSystem.masterGain.gain.setValueAtTime(vol * 0.3, window.AudioSystem.ctx.currentTime);
+                    window.AudioSystem.setMusicVolume(vol * 0.15);
                 }
             };
         }
@@ -1941,19 +1976,83 @@ You are home.`
             'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
         };
 
-        // Crew warning lines based on who's alive
+        // Crew warning lines based on who's alive AND planet type
         const warnings = [];
         const living = this.state.crew.filter(c => c.status !== 'DEAD' && !c.tags.includes('LEADER'));
         const jaxon = living.find(c => c.tags.includes('ENGINEER'));
         const aris = living.find(c => c.tags.includes('MEDIC'));
         const vance = living.find(c => c.tags.includes('SECURITY'));
         const mira = living.find(c => c.tags.includes('SPECIALIST'));
+        const pType = planet.type || 'UNKNOWN';
 
-        if (vance) warnings.push({ speaker: 'Spc. Vance', text: "Commander, this sector is a graveyard. Colonizing here is suicide. We need to go deeper." });
-        if (aris) warnings.push({ speaker: 'Dr. Aris', text: "The environmental data doesn't support long-term survival. Please, we can do better." });
-        if (jaxon) warnings.push({ speaker: 'Eng. Jaxon', text: "The soil composition, the radiation levels — nothing here can sustain agriculture. This isn't the place." });
-        if (mira) warnings.push({ speaker: 'Tech Mira', text: "My models show colony failure within 18 months at these readings. The deeper sectors have better candidates." });
-        warnings.push({ speaker: 'A.U.R.A.', text: `Colony viability assessment: ${Math.floor(Math.random() * 8 + 2)}%. Recommend proceeding to Sector ${Math.min(5, this.state.currentSector + 1)}.` });
+        // Planet-specific warnings
+        const planetWarnings = {
+            VOLCANIC: {
+                vance: "The thermal readings are off the charts. Anyone on the surface will cook alive.",
+                aris: "Constant volcanic ash in the atmosphere will destroy our lungs within weeks.",
+                jaxon: "The ground is unstable — magma flows could wipe out any settlement overnight.",
+                mira: "Seismic activity is continuous. There's nowhere safe to build."
+            },
+            TOXIC: {
+                vance: "That atmosphere will eat through our suits. One breach and we're dead.",
+                aris: "The chemical composition is lethal. Even trace exposure causes organ failure.",
+                jaxon: "We can't seal a habitat against those corrosive agents — not with our supplies.",
+                mira: "Toxicity levels are 400% above survivable limits. The math doesn't work."
+            },
+            GAS_GIANT: {
+                vance: "There's no surface! We'd be crushed by pressure before we found anything solid.",
+                aris: "Human biology cannot survive in a gas giant. This is impossible.",
+                jaxon: "Even our strongest materials can't withstand that atmospheric pressure.",
+                mira: "A floating colony requires technology we don't have."
+            },
+            DESERT: {
+                vance: "120 degrees during the day, no water. We'd be dead in a week.",
+                aris: "Heat stroke, dehydration — I can't keep people alive here.",
+                jaxon: "No water means no hydroponics. We'd starve even if we survived the heat.",
+                mira: "Water table is non-existent. Zero agricultural potential."
+            },
+            ICE_WORLD: {
+                vance: "-200 degrees will kill us faster than any enemy ever could.",
+                aris: "Frostbite, hypothermia — our medical supplies can't handle constant cold exposure.",
+                jaxon: "Energy requirements for heating would drain us dry in months.",
+                mira: "Thermal models show we'd freeze before the first harvest."
+            },
+            SHATTERED: {
+                vance: "The planet is literally falling apart. There's nothing stable to build on.",
+                aris: "Radiation from the exposed core is lethal. No one survives that.",
+                jaxon: "The structural integrity is zero. Fragments could crush us at any moment.",
+                mira: "Gravitational anomalies make orbit unstable. This world is dying."
+            },
+            ROCKY: {
+                vance: "Barren rock with no atmosphere. One dome breach and everyone suffocates.",
+                aris: "No biosphere, no ecosystem — growing food here is nearly impossible.",
+                jaxon: "Radiation exposure without atmosphere will cause long-term health issues.",
+                mira: "Resource extraction is possible, but colonization? Marginal at best."
+            },
+            STORM_WORLD: {
+                vance: "800 kilometer per hour winds. Nothing we build will survive.",
+                aris: "The constant pressure changes would cause severe physiological damage.",
+                jaxon: "Our structures can't withstand that wind speed. We'd be swept away.",
+                mira: "The storms never stop. There's no building window."
+            },
+            RADIATION_BELT: {
+                vance: "The radiation here would cook us from the inside out.",
+                aris: "Cancer rates would be 100% within the first year. I won't sign off on this.",
+                jaxon: "No amount of shielding we can build would protect against those levels.",
+                mira: "Radiation is 50x lethal dose. This is a death sentence."
+            }
+        };
+
+        // Get planet-specific warnings or fall back to generic
+        const specific = planetWarnings[pType] || null;
+
+        if (vance) warnings.push({ speaker: 'Spc. Vance', text: specific?.vance || "Commander, this sector is a graveyard. Colonizing here is suicide. We need to go deeper." });
+        if (aris) warnings.push({ speaker: 'Dr. Aris', text: specific?.aris || "The environmental data doesn't support long-term survival. Please, we can do better." });
+        if (jaxon) warnings.push({ speaker: 'Eng. Jaxon', text: specific?.jaxon || "The soil composition, the radiation levels — nothing here can sustain agriculture. This isn't the place." });
+        if (mira) warnings.push({ speaker: 'Tech Mira', text: specific?.mira || "My models show colony failure within 18 months at these readings. The deeper sectors have better candidates." });
+
+        const viability = pType === 'VITAL' || pType === 'EDEN' || pType === 'TERRAFORMED' ? Math.floor(Math.random() * 20 + 40) : Math.floor(Math.random() * 8 + 2);
+        warnings.push({ speaker: 'A.U.R.A.', text: `Colony viability assessment for ${pType}: ${viability}%. Recommend proceeding to Sector ${Math.min(5, this.state.currentSector + 1)}.` });
 
         modal.innerHTML = `
             <div class="modal-content" style="border-color: #ff4444; max-width: 650px;">
