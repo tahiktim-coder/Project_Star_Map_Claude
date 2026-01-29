@@ -597,14 +597,9 @@ class EndingSystem {
                 acts.push("A.U.R.A. became our greatest asset. She predicted weather patterns, optimized crop rotations, mediated disputes, and composed lullabies for the children. On the anniversary of landing, she said: 'I was sent to guide you home. You are home. I am content.'");
             }
 
-            // Stress Impact — if average crew stress >= 2.5
-            const avgStress = livingCrew.length > 0
-                ? livingCrew.reduce((sum, c) => sum + (c.stress || 0), 0) / livingCrew.length
-                : 0;
-            if (avgStress >= 2.5 && success) {
-                acts.push("The colony fractured within months. Too much trauma, too many unprocessed horrors from the journey. Factions formed around old grievances — who ate when there was no food, who was chosen for EVA, who was left behind. The unity that saved us in space dissolved under an open sky.");
-                if (title === "UNKNOWN") title = "THE FRACTURED COLONY";
-            }
+            // NOTE: Stress no longer affects colony outcomes
+            // The journey's trauma doesn't determine the colony's fate
+            // What matters is WHO survived and WHERE they landed
 
             // Colony Knowledge Impact — assessed failures inform better decisions
             const colonyKnowledge = state._colonyKnowledge || 0;
@@ -737,5 +732,125 @@ class EndingSystem {
     static getColonyOutcome(planet) {
         const mockState = window.app ? window.app.state : { metals: 0, crew: [], upgrades: [] };
         return this.generateOutcome(planet, mockState);
+    }
+
+    /**
+     * Generate "50 years later" epilogue for successful colonies
+     * @param {Object} planet - The colony planet
+     * @param {Object} state - Game state
+     * @param {string} mainTitle - The main ending title (used to select appropriate epilogue)
+     */
+    static generateEpilogue(planet, state, mainTitle) {
+        const livingCrew = state.crew.filter(c => c.status !== 'DEAD');
+        const type = planet.type;
+        const sector = state.currentSector || 1;
+
+        // Base population calculation
+        const startingPop = livingCrew.length;
+        const viability = this.getPlanetViability(planet, state);
+        let popMultiplier = {
+            'EXCELLENT': 150,  // 150x in 50 years (generous births, low death)
+            'GOOD': 80,        // 80x
+            'MARGINAL': 40,    // 40x
+            'POOR': 15,        // 15x (hard life, few survivors)
+            'IMPOSSIBLE': 0
+        }[viability] || 50;
+
+        // Adjust for crew roles
+        const hasMedic = livingCrew.find(c => c.tags.includes('MEDIC'));
+        const hasEng = livingCrew.find(c => c.tags.includes('ENGINEER'));
+        if (hasMedic) popMultiplier *= 1.3;
+        if (hasEng) popMultiplier *= 1.2;
+
+        const finalPop = Math.floor(startingPop * popMultiplier);
+        const generations = 3; // 50 years ≈ 3 generations
+
+        // Epilogue text fragments
+        const epilogues = [];
+
+        // Header
+        epilogues.push(`<div style="color: #888; border-top: 1px solid #333; padding-top: 15px; margin-top: 20px;">`);
+        epilogues.push(`<span style="color: #ffcc00;">/// 50 YEARS LATER ///</span>`);
+        epilogues.push(`</div>`);
+
+        // Population report
+        epilogues.push(`<div style="margin-top: 15px;">`);
+        if (finalPop >= 500) {
+            epilogues.push(`Colony population: <span style="color: #00ff00;">${finalPop.toLocaleString()} souls</span>. The settlement is now a proper city.`);
+        } else if (finalPop >= 100) {
+            epilogues.push(`Colony population: <span style="color: #ffcc00;">${finalPop.toLocaleString()} souls</span>. A small but thriving community.`);
+        } else if (finalPop >= 20) {
+            epilogues.push(`Colony population: <span style="color: #ff8800;">${finalPop.toLocaleString()} souls</span>. Survival, but barely.`);
+        } else {
+            epilogues.push(`Colony population: <span style="color: #ff4444;">${finalPop.toLocaleString()} souls</span>. The colony clings to existence.`);
+        }
+        epilogues.push(`</div>`);
+
+        // Specific epilogue based on planet type and ending
+        epilogues.push(`<div style="margin-top: 15px; line-height: 1.6;">`);
+
+        // Type-specific epilogues
+        if (type === 'EDEN') {
+            epilogues.push(`The children of Eden have never known hardship. They study the recordings of Earth with the same detachment we felt watching nature documentaries. To them, extinction is an abstract concept. They have grown soft in paradise — and there is nothing wrong with that.`);
+        } else if (type === 'TERRAFORMED') {
+            epilogues.push(`The terraforming systems still hum beneath the soil. The third generation learned to speak their language — adjusting rainfall with a whispered request, warming the winters with a prayer to the buried machines. They are not masters of this world. They are partners with it.`);
+        } else if (type === 'SINGING') {
+            epilogues.push(`The children born here hear the frequency as naturally as breathing. They find our old recordings of Earth music primitive — single melodies, finite durations. For them, the planet's endless song is home. They pity us for not understanding.`);
+        } else if (type === 'CRYSTALLINE') {
+            epilogues.push(`The crystalline harvest continues. Each generation stores their memories in the resonating spires. Death here is not an ending — it is a transformation into eternal song. The children can speak to their great-grandparents simply by touching the right crystal.`);
+        } else if (type === 'SYMBIOTE_WORLD') {
+            epilogues.push(`The boundary between human and planet has blurred. The third generation can feel the forest's moods, taste the soil's chemistry, hear the warnings of approaching storms. They are no longer human in the way we understood it. They are something better adapted.`);
+        } else if (type === 'MECHA' || type === 'MACHINE_WORLD') {
+            epilogues.push(`The factories run themselves now. The children learn machine code before they learn to speak. Half of them have voluntary augmentations by age ten. They look at our organic bodies with something between pity and confusion.`);
+        } else if (type === 'GRAVEYARD') {
+            epilogues.push(`The salvage business became an economy. Ships from other colonies — yes, there are others now — come to trade for components we've catalogued. We are the galaxy's junkyard, and we are surprisingly wealthy.`);
+        } else if (type === 'OCEANIC') {
+            epilogues.push(`Three generations in the sea has changed us. The children can hold their breath for fifteen minutes. Some have developed the first hints of webbed fingers. In another thousand years, we may not recognize our descendants. They will not mourn the loss.`);
+        } else if (type === 'ICE_WORLD' || type === 'FROZEN_OCEAN') {
+            epilogues.push(`Life in the deep is quiet. The bioluminescent ecosystems have become our gardens, our farms, our art. The children dream in colors we cannot see. When they visit the frozen surface, they weep at the stars — so bright, so cold, so impossibly distant.`);
+        } else if (type === 'VOLCANIC') {
+            epilogues.push(`We harnessed the planet's rage. Geothermal power flows endlessly. The children have never known a cold night. They build their homes from cooled lava, carving intricate patterns that glow faintly in the dark. Fire is their friend.`);
+        } else if (type === 'ROGUE') {
+            epilogues.push(`In the eternal dark, we became philosophers. Without seasons, without day and night, time became abstract. The children measure their lives in completed projects, not years. They have no concept of haste. Eternity is their inheritance.`);
+        } else if (viability === 'POOR' || viability === 'MARGINAL') {
+            epilogues.push(`Survival here remains a daily battle. But the children born in hardship know nothing else. They are tough, resourceful, suspicious of comfort. If another extinction event ever comes for humanity, these descendants will outlast it.`);
+        } else {
+            // Generic good ending
+            epilogues.push(`The stories of the journey have become legend. The crew of the EXODUS-9 are remembered as saints, sinners, heroes, and fools — depending on who tells the tale. The truth is simpler: they were human. They survived. And because they survived, so did the species.`);
+        }
+
+        epilogues.push(`</div>`);
+
+        // Crew memorials
+        epilogues.push(`<div style="margin-top: 15px; color: #666; font-size: 0.9em;">`);
+        const crewMemorials = [];
+
+        livingCrew.forEach(c => {
+            const name = c.realName ? c.realName.split(' ')[1] : c.name;
+            if (c.tags.includes('LEADER')) {
+                crewMemorials.push(`Commander ${name}'s statue stands in the central plaza. Every child learns their name.`);
+            } else if (c.tags.includes('MEDIC')) {
+                crewMemorials.push(`The ${name} Medical Center treats patients who never knew the doctor's face.`);
+            } else if (c.tags.includes('ENGINEER')) {
+                crewMemorials.push(`${name}'s original tools are preserved in glass. They built the foundation of everything.`);
+            } else if (c.tags.includes('TECH')) {
+                crewMemorials.push(`The ${name} Archive contains every transmission, every log, every memory.`);
+            } else if (c.tags.includes('SCOUT')) {
+                crewMemorials.push(`${name}'s maps still guide exploration teams into unknown territory.`);
+            }
+        });
+
+        if (crewMemorials.length > 0) {
+            epilogues.push(crewMemorials.join(' '));
+        }
+
+        epilogues.push(`</div>`);
+
+        // Final line
+        epilogues.push(`<div style="margin-top: 20px; color: #00ff88; font-style: italic; text-align: center;">`);
+        epilogues.push(`"The stars remember what we did here."<br>— inscription on the Landing Memorial`);
+        epilogues.push(`</div>`);
+
+        return epilogues.join('');
     }
 }

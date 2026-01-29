@@ -325,7 +325,7 @@ const AURA_COMMENTARY = {
     // Anomaly investigation
     ANOMALY_FOUND: {
         COOPERATIVE: [
-            "Anomalous readings confirmed. This is fascinating — be careful, but explore!",
+            "Strange readings confirmed. Be careful, but this could be worth exploring.",
             "Something impossible is happening here. I want to understand it.",
             "Anomaly verified. Whatever this is, it's beyond my databanks. Let's learn together."
         ],

@@ -2,8 +2,8 @@ class AudioSystem {
     constructor() {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         this.masterGain = this.ctx.createGain();
-        this.muted = true; // Default OFF
-        this.masterGain.gain.value = 0; // Start silenced
+        this.muted = false; // Default ON
+        this.masterGain.gain.value = 0.3; // Start with audio
         this.masterGain.connect(this.ctx.destination);
         this.initialized = false;
 
@@ -11,6 +11,35 @@ class AudioSystem {
         this.bgMusic = null;
         this.bgMusicGain = null;
         this.musicVolume = 0.15; // Lower than SFX
+    }
+
+    /**
+     * Mute all audio
+     */
+    mute() {
+        this.muted = true;
+        this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        if (this.bgMusic) {
+            this.bgMusic.volume = 0;
+        }
+    }
+
+    /**
+     * Unmute all audio
+     */
+    unmute() {
+        this.muted = false;
+        this.masterGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        if (this.bgMusic) {
+            this.bgMusic.volume = this.musicVolume;
+            if (this.bgMusic.paused) {
+                this.bgMusic.play().catch(() => {});
+            }
+        }
+        // Start music if not already playing
+        if (!this.bgMusic) {
+            this.startBackgroundMusic();
+        }
     }
 
     toggleMute() {
@@ -106,6 +135,10 @@ class AudioSystem {
                 this.ctx.resume();
                 this.initialized = true;
                 this.playTone(440, 'sine', 0.1); // Startup ping
+                // Start background music on first interaction (audio is ON by default)
+                if (!this.muted && !this.bgMusic) {
+                    this.startBackgroundMusic();
+                }
                 document.body.removeEventListener('click', resumeAudio);
                 document.body.removeEventListener('keydown', resumeAudio);
             };
@@ -113,6 +146,10 @@ class AudioSystem {
             document.body.addEventListener('keydown', resumeAudio);
         } else {
             this.initialized = true;
+            // Start background music immediately if not muted
+            if (!this.muted && !this.bgMusic) {
+                this.startBackgroundMusic();
+            }
         }
 
         this.setupEventListeners();

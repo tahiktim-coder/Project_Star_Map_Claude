@@ -93,10 +93,16 @@ const SHIP_MALFUNCTION_EVENTS = [
         title: "Hull Stress Fractures",
         condition: (state) => state.currentSector >= 2, // Only in later sectors
         context: "The ship groans. Metal fatigue is catching up to us.",
-        dialogue: [
-            { speaker: 'Eng. Jaxon', text: "Stress fractures in Section 4. This ship wasn't built for what we're doing." },
-            { speaker: 'A.U.R.A.', text: "Structural integrity at 73%. I recommend reducing warp frequency." }
-        ],
+        dialogue: (state) => {
+            // Calculate actual integrity based on damaged decks
+            const totalDecks = Object.keys(state.shipDecks || {}).length || 5;
+            const damagedDecks = Object.values(state.shipDecks || {}).filter(d => d.status !== 'OPERATIONAL').length;
+            const integrity = Math.floor(100 - (damagedDecks / totalDecks * 40) - (Math.random() * 10));
+            return [
+                { speaker: 'Eng. Jaxon', text: "Stress fractures in Section 4. This ship wasn't built for what we're doing." },
+                { speaker: 'A.U.R.A.', text: `Structural integrity at ${integrity}%. I recommend reducing warp frequency.` }
+            ];
+        },
         effect: (state) => {
             // Costs salvage to patch
             const repairCost = Math.floor(Math.random() * 15) + 10;
@@ -184,17 +190,20 @@ const SHIP_MALFUNCTION_EVENTS = [
             { speaker: 'A.U.R.A.', text: "Cargo integrity compromised. Recommend immediate inspection." }
         ],
         effect: (state) => {
-            // Lose some salvage or rations
-            if (Math.random() < 0.5) {
-                const salvageLoss = Math.floor(Math.random() * 15) + 5;
+            // Lose some salvage or rations - guaranteed loss
+            if (Math.random() < 0.5 && state.salvage > 0) {
+                const salvageLoss = Math.min(state.salvage, Math.floor(Math.random() * 15) + 5);
                 state.salvage = Math.max(0, state.salvage - salvageLoss);
-                state.addLog(`Salvage containers ruptured. -${salvageLoss} Salvage lost.`);
-                return `Cargo shift damaged supplies. Lost ${salvageLoss} salvage.`;
-            } else {
-                const rationLoss = Math.floor(Math.random() * 2) + 1;
+                state.addLog(`⚠ Salvage containers ruptured! -${salvageLoss} SALVAGE lost.`);
+                return `CARGO DAMAGE: Lost ${salvageLoss} salvage to impact.`;
+            } else if (state.rations > 0) {
+                const rationLoss = Math.min(state.rations, Math.floor(Math.random() * 2) + 1);
                 state.rations = Math.max(0, state.rations - rationLoss);
-                state.addLog(`Ration containers breached. -${rationLoss} Rations spoiled.`);
-                return `Cargo shift! ${rationLoss} rations destroyed in the accident.`;
+                state.addLog(`⚠ Ration containers breached! -${rationLoss} RATIONS spoiled.`);
+                return `CARGO DAMAGE: ${rationLoss} rations destroyed in the accident.`;
+            } else {
+                state.addLog("Cargo shift detected. Nothing was damaged - storage was empty.");
+                return "Cargo shift. Fortunately, nothing of value was affected.";
             }
         }
     },

@@ -93,7 +93,124 @@ class PlanetGenerator {
             config.hazard.onSectorEnter(null, sector); // state passed from bundle.js
         }
 
+        // Space Stations - chance to add 1 station per sector
+        // Higher chance in later sectors (more infrastructure before collapse)
+        const stationChance = 0.15 + (level * 0.05); // 20% S1, 25% S2, 30% S3, etc.
+        if (Math.random() < stationChance) {
+            sector.push(this.generateStation(level));
+        }
+
+        // Asteroid Fields - max 1 per sector, only sometimes
+        const asteroidChance = 0.25 - (level * 0.03); // 22% S1, 19% S2, etc.
+        if (Math.random() < asteroidChance && typeof generateAsteroidField !== 'undefined') {
+            sector.push(generateAsteroidField(level));
+        }
+
+        // Assign non-overlapping positions to all bodies
+        this.assignNonOverlappingPositions(sector);
+
         return sector;
+    }
+
+    /**
+     * Assign non-overlapping positions to all sector bodies
+     * Uses a simple grid-based approach with some randomization
+     * Skips special bodies like THE STRUCTURE that have fixed positions
+     */
+    static assignNonOverlappingPositions(sector) {
+        const minDistance = 15; // Minimum distance between planets (percentage)
+        const positions = [];
+
+        // First, collect positions of fixed bodies (like THE STRUCTURE)
+        sector.forEach(body => {
+            if (body.isStructure || body._isWrongPlace) {
+                // Keep fixed position, add to collision list
+                if (body.mapData) {
+                    positions.push({ x: body.mapData.x, y: body.mapData.y });
+                }
+            }
+        });
+
+        // Then assign positions to non-fixed bodies
+        sector.forEach((body, index) => {
+            // Skip bodies with fixed positions
+            if (body.isStructure || body._isWrongPlace) {
+                return;
+            }
+
+            let x, y;
+            let attempts = 0;
+            const maxAttempts = 50;
+
+            do {
+                // Generate random position
+                x = Math.floor(Math.random() * 70) + 15; // 15% - 85%
+                y = Math.floor(Math.random() * 70) + 15;
+                attempts++;
+
+                // Check distance from all existing positions
+                const tooClose = positions.some(pos => {
+                    const dx = pos.x - x;
+                    const dy = pos.y - y;
+                    return Math.sqrt(dx * dx + dy * dy) < minDistance;
+                });
+
+                if (!tooClose || attempts >= maxAttempts) {
+                    break;
+                }
+            } while (true);
+
+            // Assign position
+            if (body.mapData) {
+                body.mapData.x = x;
+                body.mapData.y = y;
+            } else {
+                body.mapData = { x, y };
+            }
+            positions.push({ x, y });
+        });
+    }
+
+    /**
+     * Generate a space station node for the sector map
+     */
+    static generateStation(level) {
+        const stationNames = [
+            'Orbital-7', 'Waypoint Kappa', 'Deep Anchor', 'The Relay',
+            'Station Erebus', 'Outpost Terminus', 'The Hub', 'Platform Zeta',
+            'Cargo Ring Alpha', 'Research Station Omega', 'Refinery-12',
+            'Mining Platform 6', 'Colony Support Station', 'The Watchtower'
+        ];
+
+        const name = stationNames[Math.floor(Math.random() * stationNames.length)];
+
+        return {
+            id: 'station_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            name: name,
+            type: 'STATION',
+            isStation: true,
+            desc: 'Abandoned orbital station. Power readings intermittent. Worth investigating.',
+            fuelCost: 4 + Math.floor(Math.random() * 4), // 4-7 energy
+            scanned: false,
+            remoteScanned: false,
+            tags: ['STATION'],
+            dangerLevel: 1 + Math.floor(level / 2), // Scales with sector
+            resources: {
+                metals: 30 + Math.floor(Math.random() * 40), // 30-70
+                energy: 20 + Math.floor(Math.random() * 30)  // 20-50
+            },
+            metrics: {
+                hasLife: false,
+                hasTech: true,
+                gravity: 0,
+                temp: 0
+            },
+            atmosphere: 'NONE',
+            mapData: {
+                x: 15 + Math.random() * 70,
+                y: 15 + Math.random() * 70
+            }
+        };
     }
 
     static generatePlanet(level, config, forceType) {

@@ -35,7 +35,7 @@ const ITEMS = {
         onUse: (state) => {
             // More powerful - reduces stress for TWO crew members
             const stressed = state.crew.filter(c => c.status !== 'DEAD' && c.stress > 0);
-            if (stressed.length === 0) return "The monolith's geometry is fascinating, but no one needs its calm right now.";
+            if (stressed.length === 0) return "The monolith's geometry is strange, but no one needs its calm right now.";
             // Sort by stress descending, take top 2
             stressed.sort((a, b) => b.stress - a.stress);
             const affected = stressed.slice(0, 2);
@@ -205,7 +205,7 @@ const ITEMS = {
             });
             return reduced > 0
                 ? `The crew reflects on the artifact's former owners. They too struggled. Somehow, that helps. (-1 Stress for ${reduced} crew)`
-                : "The artifact is fascinating, but no one needs perspective right now.";
+                : "The artifact is interesting, but no one needs perspective right now.";
         }
     },
     ANCIENT_DATABASE: {
@@ -259,11 +259,11 @@ const ITEMS = {
         id: 'repair_drone', name: 'Repair Drone', type: 'TECH', value: 150,
         desc: 'Autonomous repair unit. Can repair a damaged deck.',
         onUse: (state) => {
-            const damaged = Object.keys(state.decks).filter(d => !state.decks[d].operational);
+            const damaged = Object.entries(state.shipDecks).filter(([k, d]) => d.status === 'DAMAGED');
             if (damaged.length === 0) return "No damaged decks to repair.";
-            const deck = damaged[0];
-            state.decks[deck].operational = true;
-            return `Repair drone deployed. ${deck.toUpperCase()} deck restored to operational status.`;
+            const [deckKey, deck] = damaged[0];
+            deck.status = 'OPERATIONAL';
+            return `Repair drone deployed. ${deck.label || deckKey.toUpperCase()} deck restored to operational status.`;
         }
     }
 };

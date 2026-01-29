@@ -26,7 +26,7 @@ const BARK_DATA = {
             3: ["Volunteering to die? That's what this is.", "Whatever. Let's get it over with."]
         },
         CURIOUS: {
-            0: ["Spectral analysis is fascinating! Look at those atmospheric bands.", "Oh! The mineral composition here is unique."],
+            0: ["Spectral analysis is incredible! Look at those atmospheric bands.", "Oh! The mineral composition here is unique."],
             1: ["Interesting readings. Could be worth investigating.", "The surface patterns don't match any catalog I've seen.", "Preliminary data looks... unusual."],
             2: ["Something feels off about the readings. I can't place it.", "My models keep giving contradictory results.", "The data doesn't make sense. Nothing makes sense anymore."],
             3: ["I used to get excited about new worlds.", "Just another rock. Run the scans. Move on."]
@@ -56,8 +56,8 @@ const BARK_DATA = {
             3: ["Scanned. Logged. Irrelevant. We're dead either way."]
         },
         CURIOUS: {
-            0: ["Look at these readings! The crystalline structures are remarkable.", "Fascinating composition. I want a closer look."],
-            1: ["Hmm, some anomalous readings. Worth a deeper investigation.", "The subsurface data is... unexpected.", "I'm flagging some unusual spectral lines for analysis."],
+            0: ["Look at these readings! The crystalline structures are amazing.", "Beautiful composition. I want a closer look."],
+            1: ["Hmm, some strange readings. Worth checking out.", "The subsurface data is... unexpected.", "I'm marking some unusual spectral lines for later."],
             2: ["The data is contradictory again. I don't trust my own instruments anymore.", "Something beneath the surface. Can't resolve it.", "More questions than answers. As always."],
             3: ["Scan done. I've stopped caring what it says."]
         }
@@ -147,7 +147,7 @@ const BARK_DATA = {
         },
         CURIOUS: {
             0: ["I've calibrated the portable scanner. We might find something extraordinary!", "EVA prep complete. The surface readings suggest some incredible formations."],
-            1: ["I'd love a sample from the secondary deposit. If it's safe.", "Be careful near the anomalous readings. Fascinating but potentially dangerous."],
+            1: ["I'd love a sample from the secondary deposit. If it's safe.", "Be careful near the strange readings. Interesting but potentially dangerous."],
             2: ["The instruments keep glitching. I can't guarantee accurate readings down there.", "I used to beg for EVA time. Now I just... worry."],
             3: ["Bring back whatever. It won't matter."]
         }
@@ -326,7 +326,7 @@ const BARK_DATA = {
             3: ["Whatever's waiting, it's been waiting a long time."]
         },
         CURIOUS: {
-            0: ["Fascinating! The readings here defy normal physics.", "I'm detecting energy signatures that shouldn't exist."],
+            0: ["Incredible! The readings here defy normal physics.", "I'm detecting energy signatures that shouldn't exist."],
             1: ["The math doesn't work. These phenomena break known laws.", "I need more data. But I'm almost afraid to get it."],
             2: ["The anomalies are increasing. Something is changing out here.", "My models are useless. Nothing behaves as expected."],
             3: ["I used to want to understand. Now I just want to survive."]
@@ -417,7 +417,7 @@ const BARK_DATA = {
         },
         CURIOUS: {
             0: ["A vital-class world! The spectral data is extraordinary!", "Biosphere confirmed! The chemical signatures suggest complex life!"],
-            1: ["The ecosystem readings are fascinating. Multi-layered biome.", "This is what every exobiologist dreams of. Living systems."],
+            1: ["The ecosystem readings are amazing. Multi-layered biome.", "This is what every exobiologist dreams of. Living systems."],
             2: ["Beautiful. Dangerous. Everything beautiful out here is dangerous.", "I want to believe the data. I really do."],
             3: ["Another dataset. Another promise. Another lie."]
         }

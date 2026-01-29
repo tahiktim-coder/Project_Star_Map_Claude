@@ -28,7 +28,7 @@ The Lighthouse has been here for a very long time. Longer than humanity has exis
 
         dialogue: [
             { speaker: 'Tech Mira', text: "This... this is a navigation beacon. The math describes corridors through spacetime. Paths we could never have calculated on our own." },
-            { speaker: 'A.U.R.A.', text: "The signal predates human spaceflight by approximately 3.2 billion years. It was placed here deliberately. For us." },
+            { speaker: 'A.U.R.A.', text: "The signal predates human spaceflight by over 3 billion years. It was placed here deliberately. For us." },
             { speaker: 'Spc. Vance', text: "Or for something like us. Something that came before." },
             { speaker: 'Eng. Jaxon', text: "The materials are unlike anything in our databases. But I think... I think I can interface with it." }
         ],
@@ -37,7 +37,7 @@ The Lighthouse has been here for a very long time. Longer than humanity has exis
             {
                 id: 'DOWNLOAD_CHARTS',
                 text: "Download the star charts",
-                desc: "Reveals optimal paths. All future warps cost -2 energy.",
+                desc: "Reveals better paths. All future warps cost -2 energy.",
                 effect: (state) => {
                     state._lighthouseBonus = true;
                     state.addLog("NAVIGATION DATA INTEGRATED: Star charts downloaded. Warp efficiency permanently improved.");
@@ -115,7 +115,7 @@ Someone built this. Someone tended it for millennia. And then they left. But the
                     state._gardenSamples = true;
                     state.addLog("Genetic samples secured. Viable seeds, soil bacteria, pollinator embryos.");
                     state.addLog("Dr. Aris: 'These aren't Earth species. But they're compatible with us. Someone designed them to be.'");
-                    return "Samples collected. +3 Rations. Colony viability significantly improved.";
+                    return "Samples collected. +3 Rations. These will help when we settle.";
                 }
             },
             {

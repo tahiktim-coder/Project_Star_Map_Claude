@@ -16,6 +16,16 @@ class OrbitView {
             return this.renderStructure(planet);
         }
 
+        // Special rendering for SPACE STATIONS
+        if (planet.isStation) {
+            return this.renderStation(planet);
+        }
+
+        // Special rendering for ASTEROID FIELDS
+        if (planet.isAsteroidField) {
+            return this.renderAsteroidField(planet);
+        }
+
         const isDeepScanned = planet.scanned;
         const showStat = (key) => isDeepScanned || (planet.revealedStats && planet.revealedStats.includes(key));
 
@@ -126,9 +136,12 @@ class OrbitView {
                                  ${(() => {
                                     const dl = planet.dangerLevel || 0;
                                     const hazTypes = ['BIO_MASS','VOLCANIC','SHATTERED','MECHA','GRAVEYARD','HOLLOW','TIDALLY_LOCKED'];
-                                    const hostileTypes = ['BIO_MASS','MECHA','SYMBIOTE_WORLD'];
+                                    const hostileTypes = ['BIO_MASS','MECHA']; // SYMBIOTE_WORLD is welcoming, not hostile
                                     const isHostile = hostileTypes.includes(planet.type);
-                                    const threatLevel = dl >= 3 ? 'CRITICAL' : (dl >= 2 || hazTypes.includes(planet.type)) ? 'HIGH' : (dl >= 1 || hasLife) ? 'MODERATE' : 'LOW';
+                                    // Safe planet types should never show CRITICAL
+                                    const safeTypes = ['EDEN', 'SYMBIOTE_WORLD', 'SINGING', 'VITAL', 'TERRAFORMED'];
+                                    const isSafe = safeTypes.includes(planet.type);
+                                    const threatLevel = isSafe ? (dl >= 2 ? 'MODERATE' : 'LOW') : (dl >= 3 ? 'CRITICAL' : (dl >= 2 || hazTypes.includes(planet.type)) ? 'HIGH' : (dl >= 1 || hasLife) ? 'MODERATE' : 'LOW');
                                     const threatColor = threatLevel === 'CRITICAL' ? '#ff4444' : threatLevel === 'HIGH' ? '#ffa500' : threatLevel === 'MODERATE' ? '#ffff00' : 'var(--color-primary)';
                                     const threatDesc = isHostile && hasLife ? 'HOSTILE FAUNA DETECTED' : (hasLife ? 'BIOSIGNS — UNKNOWN INTENT' : (hazTypes.includes(planet.type) ? 'ENVIRONMENTAL HAZARD' : 'NOMINAL'));
                                     return `<div style="margin-top: 10px; border-top: 1px dashed var(--color-primary-dim); padding-top: 8px;">
@@ -248,6 +261,149 @@ class OrbitView {
         return this.element;
     }
 
+    renderStation(station) {
+        // Special rendering for abandoned space stations
+        const statusText = station.stationInvestigated ? 'EXPLORED' : 'DOCKING READY';
+        const statusColor = station.stationInvestigated ? '#555555' : '#00aaff';
+
+        this.element.innerHTML = `
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(135deg, #0a0a15, #0a1520);">
+                <h2 style="color: #00aaff; border-bottom: 2px solid #00aaff; padding-bottom: 10px; margin-bottom: 20px; max-width: 60%;">
+                    /// STATION APPROACH: ${station.name}
+                </h2>
+
+                <div style="flex: 1; display: flex; flex-direction: row; gap: 20px; min-height: 0;">
+
+                    <!-- LEFT: Station Data -->
+                    <div style="width: 280px; display: flex; flex-direction: column; gap: 15px; border-right: 1px dashed #00aaff; padding-right: 20px; overflow-y: auto; min-height: 0;">
+                        <div style="color: #00ccff; border-bottom: 1px solid #003366; margin-bottom: 5px;">STATION TELEMETRY</div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div style="color: var(--color-text-dim);">STATUS</div>
+                            <div style="color: ${statusColor}; text-align: right;">${statusText}</div>
+
+                            <div style="color: var(--color-text-dim);">POWER</div>
+                            <div style="color: #ff6600; text-align: right;">EMERGENCY ONLY</div>
+
+                            <div style="color: var(--color-text-dim);">ATMO</div>
+                            <div style="color: #ffcc00; text-align: right;">PARTIAL BREACH</div>
+
+                            <div style="color: var(--color-text-dim);">LIFESIGNS</div>
+                            <div style="color: #ff4444; text-align: right;">NEGATIVE</div>
+
+                            <div style="color: var(--color-text-dim);">ORIGIN</div>
+                            <div style="color: var(--color-primary); text-align: right;">UNKNOWN</div>
+
+                            <div style="color: var(--color-text-dim);">LAST LOG</div>
+                            <div style="color: var(--color-primary); text-align: right;">23 YEARS AGO</div>
+                        </div>
+
+                        <div style="margin-top: 20px; padding: 15px; border: 1px solid #003366; background: rgba(0,50,100,0.2);">
+                            <div style="color: #00aaff; font-size: 0.9em; line-height: 1.6; font-style: italic;">
+                                "Docking ports are responsive. Internal gravity offline. Whatever happened here, it happened fast."
+                            </div>
+                        </div>
+
+                        <div style="margin-top: auto; padding: 15px; border: 1px solid #ffaa00; background: rgba(255,170,0,0.1);">
+                            <div style="color: #ffaa00; font-weight: bold; font-size: 0.85em;">⚠ A.U.R.A. ADVISORY</div>
+                            <div style="color: #ffcc66; opacity: 0.9; font-size: 0.8em; margin-top: 5px;">
+                                "Recommend EVA suits for boarding. Interior conditions unknown. Salvage potential confirmed."
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Station Visual -->
+                    <div class="orbit-visual" style="flex: 1; display: flex; align-items: center; justify-content: center; position: relative; margin-top: -40px;">
+                        <div class="planet-visual type-STATION" style="
+                            width: 200px; height: 200px;
+                            position: relative;
+                        ">
+                        </div>
+                        <div style="
+                            position: absolute; top: 50%; left: 50%; width: 300px; height: 300px; transform: translate(-50%, -50%);
+                            border: 1px dashed rgba(0,170,255,0.3); border-radius: 50%; animation: spin 40s linear infinite;
+                        ">
+                            <div style="width: 15px; height: 15px; background: var(--color-accent); border-radius: 50%; position: absolute; top: -7px; left: 50%; transform: translateX(-50%); box-shadow: 0 0 10px var(--color-accent);"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        `;
+        this.updateCommandDeck(station);
+        return this.element;
+    }
+
+    renderAsteroidField(field) {
+        // Special rendering for asteroid fields
+        const statusText = field.asteroidMined ? 'DEPLETED' : 'MINING READY';
+        const statusColor = field.asteroidMined ? '#555555' : '#cc8844';
+
+        this.element.innerHTML = `
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(135deg, #0a0a15, #150a08);">
+                <h2 style="color: #cc8844; border-bottom: 2px solid #cc8844; padding-bottom: 10px; margin-bottom: 20px; max-width: 60%;">
+                    /// ASTEROID FIELD: ${field.name}
+                </h2>
+
+                <div style="flex: 1; display: flex; flex-direction: row; gap: 20px; min-height: 0;">
+
+                    <!-- LEFT: Field Data -->
+                    <div style="width: 280px; display: flex; flex-direction: column; gap: 15px; border-right: 1px dashed #cc8844; padding-right: 20px; overflow-y: auto; min-height: 0;">
+                        <div style="color: #ffaa55; border-bottom: 1px solid #553311; margin-bottom: 5px;">FIELD ANALYSIS</div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div style="color: var(--color-text-dim);">STATUS</div>
+                            <div style="color: ${statusColor}; text-align: right;">${statusText}</div>
+
+                            <div style="color: var(--color-text-dim);">DENSITY</div>
+                            <div style="color: #ffaa55; text-align: right;">HIGH</div>
+
+                            <div style="color: var(--color-text-dim);">COMPOSITION</div>
+                            <div style="color: var(--color-primary); text-align: right;">MIXED MINERALS</div>
+
+                            <div style="color: var(--color-text-dim);">NAV HAZARD</div>
+                            <div style="color: #ff6600; text-align: right;">MODERATE</div>
+
+                            <div style="color: var(--color-text-dim);">SALVAGE</div>
+                            <div style="color: var(--color-primary); text-align: right;">${field.resources?.metals >= 60 ? 'RICH' : 'MODERATE'}</div>
+                        </div>
+
+                        <div style="margin-top: 20px; padding: 15px; border: 1px solid #553311; background: rgba(80,40,10,0.2);">
+                            <div style="color: #cc8844; font-size: 0.9em; line-height: 1.6; font-style: italic;">
+                                "Debris field detected. Multiple extraction points available. Watch for unstable masses and collision hazards."
+                            </div>
+                        </div>
+
+                        <div style="margin-top: auto; padding: 15px; border: 1px solid #ffaa00; background: rgba(255,170,0,0.1);">
+                            <div style="color: #ffaa00; font-weight: bold; font-size: 0.85em;">A.U.R.A. NAVIGATION ADVISORY</div>
+                            <div style="color: #ffcc66; opacity: 0.9; font-size: 0.8em; margin-top: 5px;">
+                                "Recommend careful maneuvering. Collision probability varies by extraction method."
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Asteroid Field Visual -->
+                    <div class="orbit-visual" style="flex: 1; display: flex; align-items: center; justify-content: center; position: relative; margin-top: -40px;">
+                        <div class="planet-visual type-ASTEROID_FIELD" style="
+                            width: 240px; height: 240px;
+                            position: relative;
+                        ">
+                        </div>
+                        <div style="
+                            position: absolute; top: 50%; left: 50%; width: 340px; height: 340px; transform: translate(-50%, -50%);
+                            border: 1px dashed rgba(204,136,68,0.3); border-radius: 50%; animation: spin 60s linear infinite;
+                        ">
+                            <div style="width: 15px; height: 15px; background: var(--color-accent); border-radius: 50%; position: absolute; top: -7px; left: 50%; transform: translateX(-50%); box-shadow: 0 0 10px var(--color-accent);"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        `;
+        this.updateCommandDeck(field);
+        return this.element;
+    }
+
     getPlanetColor(type) {
         switch (type) {
             case 'ROCKY': return '#8B4513';
@@ -298,7 +454,33 @@ class OrbitView {
                     <div>${planet.scanned ? 'SYSTEM SCANNED' : 'DEEP SCAN'}</div>
                     <div class="cost">${planet.scanned ? 'ANALYSIS COMPLETE' : '-2 ENERGY'}</div>
                 </button>
-                
+
+                ${planet.isStation && !planet.stationInvestigated
+                    ? `<button class="cmd-btn" id="btn-station" style="border-color: #00aaff; color: #00aaff;">
+                        <div>BOARD STATION</div>
+                        <div class="cost" style="color: #00aaff;">DOCKING PORT ACCESSIBLE</div>
+                       </button>`
+                    : (planet.isStation && planet.stationInvestigated
+                        ? `<button class="cmd-btn" id="btn-station" disabled style="border-color: #555; color: #555;">
+                            <div>STATION EXPLORED</div>
+                            <div class="cost">SYSTEMS CATALOGUED</div>
+                           </button>`
+                        : '')
+                }
+
+                ${planet.isAsteroidField && !planet.asteroidMined
+                    ? `<button class="cmd-btn" id="btn-asteroid" style="border-color: #cc8844; color: #cc8844;">
+                        <div>BEGIN MINING</div>
+                        <div class="cost" style="color: #cc8844;">EXTRACTION READY</div>
+                       </button>`
+                    : (planet.isAsteroidField && planet.asteroidMined
+                        ? `<button class="cmd-btn" id="btn-asteroid" disabled style="border-color: #555; color: #555;">
+                            <div>FIELD MINED</div>
+                            <div class="cost">RESOURCES DEPLETED</div>
+                           </button>`
+                        : '')
+                }
+
                 ${this.state.probeIntegrity > 0
                 ? `<button class="cmd-btn" id="btn-probe">
                          <div>LAUNCH PROBE</div><div class="cost">Integrity: ${this.state.probeIntegrity.toFixed(0)}%</div>
@@ -437,7 +619,7 @@ class OrbitView {
                        </button>`
                 }
 
-                ${!planet.isStructure && !planet._isWrongPlace ? `<button class="cmd-btn" id="btn-colony" style="border-color: #00ff00; color: #00ff00; margin-top: auto;">
+                ${!planet.isStructure && !planet._isWrongPlace && !planet.isStation && !planet.isAsteroidField ? `<button class="cmd-btn" id="btn-colony" style="border-color: #00ff00; color: #00ff00; margin-top: auto;">
                     <div>ESTABLISH COLONY</div><div class="cost">END JOURNEY</div>
                 </button>` : ''}
              </div>
@@ -463,6 +645,12 @@ class OrbitView {
 
         const btnEva = rightPanel.querySelector('#btn-eva');
         if (btnEva) btnEva.addEventListener('click', () => window.dispatchEvent(new CustomEvent('req-action-eva')));
+
+        const btnStation = rightPanel.querySelector('#btn-station:not([disabled])');
+        if (btnStation) btnStation.addEventListener('click', () => window.dispatchEvent(new CustomEvent('req-action-station')));
+
+        const btnAsteroid = rightPanel.querySelector('#btn-asteroid:not([disabled])');
+        if (btnAsteroid) btnAsteroid.addEventListener('click', () => window.dispatchEvent(new CustomEvent('req-action-asteroid')));
 
         const btnExodus = rightPanel.querySelector('#btn-exodus:not([disabled])');
         if (btnExodus) btnExodus.addEventListener('click', () => window.dispatchEvent(new CustomEvent('req-action-exodus')));

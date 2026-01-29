@@ -318,6 +318,11 @@ const SECTOR_CONFIG = {
             onScan: null,
             onDeepScan: null,
             onSectorEnter: function(state, planets) {
+                // Only add THE STRUCTURE if it doesn't already exist
+                if (planets.some(p => p.isStructure)) {
+                    return; // Already added
+                }
+
                 // Add THE STRUCTURE as a special POI
                 const structure = {
                     id: 'THE_STRUCTURE',
@@ -333,7 +338,7 @@ const SECTOR_CONFIG = {
                     dangerLevel: 0,
                     tags: ['STRUCTURE', 'ENDGAME'],
                     metrics: { hasLife: false, hasTech: true },
-                    desc: 'It is not a planet. It is not a station. It is THE STRUCTURE. It has always been here. Waiting.',
+                    desc: 'It is not a planet. It is not a station. It defies comprehension. It has always been here. Waiting.',
                     mapData: {
                         x: 50,  // Center of the map
                         y: 50

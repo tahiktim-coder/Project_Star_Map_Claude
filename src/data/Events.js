@@ -220,6 +220,147 @@ const EVENTS = [
             { text: "Record Song (Risky)", riskMod: 30, reward: { type: 'ITEM', tags: ['ARTIFACT'] } }
         ]
     },
+    // --- ADDITIONAL EVA EVENTS ---
+    {
+        id: 'FUNGAL_BLOOM',
+        trigger: (planet) => planet.type === 'FUNGAL' || (planet.metrics && planet.metrics.hasLife && Math.random() < 0.3),
+        title: "FUNGAL BLOOM",
+        desc: "The ground is covered in glowing mushrooms. The spores are psychoactive. The crew is seeing patterns in everything.",
+        choices: [
+            { text: "Retreat to Ship (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Harvest for Study (Risky)", riskMod: 25, reward: { type: 'ITEM', tags: ['BIO', 'RATION'] } }
+        ]
+    },
+    {
+        id: 'GRAVITY_WELL',
+        trigger: (planet) => planet.metrics && planet.metrics.gravity > 1.2,
+        title: "GRAVITY SURGE",
+        desc: "Local gravity just tripled. Equipment is being crushed. Crew can barely stand.",
+        choices: [
+            { text: "Emergency Extraction (Costly)", riskMod: 10, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Crawl to Target (Extreme)", riskMod: 45, reward: { type: 'ITEM', tags: ['GEO', 'ARTIFACT'] } }
+        ]
+    },
+    {
+        id: 'DUST_STORM',
+        trigger: (planet) => ['DESERT', 'ROCKY', 'TOXIC'].includes(planet.type),
+        title: "SILICA STORM",
+        desc: "A massive dust storm is rolling in. The particles are shredding suit integrity.",
+        choices: [
+            { text: "Shelter in Place (Safe)", riskMod: 5, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Push Through (Very Risky)", riskMod: 40, reward: { type: 'ITEM', tags: ['GEO'] } }
+        ]
+    },
+    {
+        id: 'MASS_BURIAL',
+        trigger: (planet) => planet.type === 'TOMB_WORLD' || Math.random() < 0.15,
+        title: "THE GRAVES",
+        desc: "Thousands of burial markers. Not human. Not any species we know. The dates are from the future.",
+        choices: [
+            { text: "Record and Leave (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Exhume One (Disturbing)", riskMod: 35, reward: { type: 'ITEM', tags: ['LORE', 'ARTIFACT'] } }
+        ]
+    },
+    {
+        id: 'ACID_RAIN',
+        trigger: (planet) => planet.atmosphere === 'TOXIC' || planet.type === 'TOXIC',
+        title: "CORROSIVE DOWNPOUR",
+        desc: "It's raining acid. The lander's exterior is dissolving. Every second costs us.",
+        choices: [
+            { text: "Abort Mission (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Quick Grab (Very Risky)", riskMod: 35, reward: { type: 'RESOURCE', val: 'METALS_HIGH' } }
+        ]
+    },
+    {
+        id: 'MAGNETIC_STORM',
+        trigger: (planet) => ['GAS_GIANT', 'SHATTERED'].includes(planet.type) || Math.random() < 0.2,
+        title: "EM SURGE",
+        desc: "Electromagnetic storm is frying electronics. Comms are down. Navigation is dead.",
+        choices: [
+            { text: "Wait It Out (Slow)", riskMod: 10, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Navigate Blind (Extreme)", riskMod: 50, reward: { type: 'ITEM', tags: ['TECH'] } }
+        ]
+    },
+    {
+        id: 'CAVE_SYSTEM',
+        trigger: (planet) => ['ROCKY', 'ICE_WORLD', 'HOLLOW'].includes(planet.type),
+        title: "UNDERGROUND NETWORK",
+        desc: "Scans reveal massive cave systems. Something is moving in the darkness.",
+        choices: [
+            { text: "Surface Only (Safe)", riskMod: 5, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Spelunk Deep (Risky)", riskMod: 40, reward: { type: 'ITEM', tags: ['GEO', 'BIO'] } }
+        ]
+    },
+    {
+        id: 'FROZEN_LAKE',
+        trigger: (planet) => planet.type === 'ICE_WORLD' || planet.type === 'FROZEN_OCEAN',
+        title: "BENEATH THE ICE",
+        desc: "Something is swimming under the frozen surface. It's circling the landing zone.",
+        choices: [
+            { text: "Stay Away From Edge (Safe)", riskMod: 5, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Drop Camera Through Ice (Risky)", riskMod: 30, reward: { type: 'ITEM', tags: ['BIO', 'LORE'] } }
+        ]
+    },
+    {
+        id: 'LIVING_METAL',
+        trigger: (planet) => planet.type === 'MECHA' || planet.type === 'MACHINE_WORLD',
+        title: "ADAPTIVE METAL",
+        desc: "The ground is metal and it's... rearranging. Building something around the lander.",
+        choices: [
+            { text: "Escape Before Trapped (Safe)", riskMod: 10, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Let It Finish (Unknown)", riskMod: 45, reward: { type: 'ITEM', tags: ['TECH', 'ARTIFACT'] } }
+        ]
+    },
+    {
+        id: 'OLD_COLONY',
+        trigger: (planet) => planet.tags && planet.tags.includes('FAILED_COLONY'),
+        title: "THE SETTLEMENT",
+        desc: "Human buildings. Abandoned decades ago. The doors are still locked from the inside.",
+        choices: [
+            { text: "Salvage Exterior (Safe)", riskMod: 5, reward: { type: 'RESOURCE', val: 'METALS' } },
+            { text: "Break In (Disturbing)", riskMod: 25, reward: { type: 'ITEM', tags: ['LORE', 'RATION'] } }
+        ]
+    },
+    {
+        id: 'RADIO_SILENCE',
+        trigger: (planet) => Math.random() < 0.2,
+        title: "DEAD AIR",
+        desc: "All radio contact with the ship has stopped. The EVA team is alone. Something is jamming signals.",
+        choices: [
+            { text: "Return Immediately (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Find The Source (Very Risky)", riskMod: 50, reward: { type: 'ITEM', tags: ['TECH', 'ARTIFACT'] } }
+        ]
+    },
+    {
+        id: 'PERFECT_SPHERE',
+        trigger: (planet) => Math.random() < 0.15,
+        title: "THE SPHERE",
+        desc: "A perfect sphere of unknown material. 10 meters diameter. It's warm. It's humming. It knows we're here.",
+        choices: [
+            { text: "Document Only (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'ENERGY' } },
+            { text: "Touch It (Unknown)", riskMod: 45, reward: { type: 'ITEM', tags: ['ARTIFACT', 'LORE'] } }
+        ]
+    },
+    {
+        id: 'GAS_POCKET',
+        trigger: (planet) => planet.type === 'VOLCANIC' || planet.type === 'SULFUR',
+        title: "TOXIC VENTING",
+        desc: "The ground is releasing poisonous gas. Suit filters won't last long.",
+        choices: [
+            { text: "Retreat Now (Safe)", riskMod: 5, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Rush The Objective (Risky)", riskMod: 35, reward: { type: 'RESOURCE', val: 'METALS_HIGH' } }
+        ]
+    },
+    {
+        id: 'FOOTPRINTS',
+        trigger: (planet) => Math.random() < 0.1,
+        title: "WE WEREN'T FIRST",
+        desc: "Human footprints in the dust. No ship wreckage. No bodies. The prints just... stop.",
+        choices: [
+            { text: "Log and Leave (Safe)", riskMod: 0, reward: { type: 'RESOURCE', val: 'NOTHING' } },
+            { text: "Follow The Trail (Psych Risk)", riskMod: 40, reward: { type: 'ITEM', tags: ['LORE'] } }
+        ]
+    },
     {
         id: 'DISTRESS_BEACON', // Fallback — MUST BE LAST
         trigger: () => true,

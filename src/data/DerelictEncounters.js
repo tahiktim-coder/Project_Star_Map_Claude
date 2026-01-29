@@ -39,15 +39,16 @@ const DERELICT_ENCOUNTERS = [
         choices: [
             {
                 text: "Salvage the cargo bays",
-                desc: "+40 Salvage. Safe approach.",
+                desc: "+30-50 Salvage. Safe approach.",
                 effect: (state) => {
-                    state.salvage = Math.min(state.maxSalvage, state.salvage + 40);
-                    return "Cargo bay ransacked. Unrefined ore and spare parts recovered. +40 Salvage.";
+                    const salvage = Math.floor(Math.random() * 21) + 30; // 30-50
+                    state.salvage = Math.min(state.maxSalvage, state.salvage + salvage);
+                    return `Cargo bay ransacked. Unrefined ore and spare parts recovered. +${salvage} Salvage.`;
                 }
             },
             {
                 text: "Extract from the reactor (-10 Energy)",
-                desc: "Risk: 20% crew injury. Reward: +60 Energy.",
+                desc: "Risk: 20% crew injury. Reward: +50-70 Energy.",
                 effect: (state) => {
                     if (state.energy < 10) return "Insufficient energy for extraction operation.";
                     state.energy -= 10;
@@ -59,23 +60,25 @@ const DERELICT_ENCOUNTERS = [
                             state.addLog(`RADIATION EXPOSURE: ${victim.name} received dangerous dose during extraction.`);
                         }
                     }
-                    state.energy = Math.min(100, state.energy + 60);
-                    return "Reactor cores drained. Dangerous but worth it. +60 Energy (net +50).";
+                    const energyGain = Math.floor(Math.random() * 21) + 50; // 50-70
+                    state.energy = Math.min(100, state.energy + energyGain);
+                    return `Reactor cores drained. Dangerous but worth it. +${energyGain} Energy (net +${energyGain - 10}).`;
                 }
             },
             {
                 text: "Check crew quarters for supplies",
-                desc: "+15 Salvage, chance for Food Pack or luxury item.",
+                desc: "+10-20 Salvage, chance for Food Pack or luxury item.",
                 effect: (state) => {
-                    state.salvage = Math.min(state.maxSalvage, state.salvage + 15);
+                    const salvage = Math.floor(Math.random() * 11) + 10; // 10-20
+                    state.salvage = Math.min(state.maxSalvage, state.salvage + salvage);
                     if (Math.random() < 0.4 && typeof ITEMS !== 'undefined') {
                         const item = Math.random() > 0.5 ? ITEMS.FOOD_PACK : ITEMS.LUXURY_CHOCOLATE;
                         if (item) {
                             state.cargo.push({ ...item, acquiredAt: 'Mining Derelict' });
-                            return `Found personal supplies in the bunks. +15 Salvage, +${item.name}.`;
+                            return `Found personal supplies in the bunks. +${salvage} Salvage, +${item.name}.`;
                         }
                     }
-                    return "Quarters stripped bare. Previous scavengers got here first. +15 Salvage.";
+                    return `Quarters stripped bare. Previous scavengers got here first. +${salvage} Salvage.`;
                 }
             }
         ]
@@ -380,7 +383,7 @@ const DERELICT_ENCOUNTERS = [
                     state._colonyKnowledge = (state._colonyKnowledge || 0) + 2;
                     state.addLog("CULTURAL ARCHIVE: 'Generation 12 Rebellion suppressed. Root cause: resource inequality between decks. Recommendation: transparent rationing.'");
                     state.addLog("CULTURAL ARCHIVE: 'Generation 15 Plague contained. Root cause: closed-loop air system. Recommendation: redundant filtration.'");
-                    return "Centuries of social experiments documented. Colony knowledge significantly improved.";
+                    return "Centuries of social experiments documented. This will help when we settle.";
                 }
             }
         ]

@@ -213,6 +213,23 @@ class GameState {
         // --- Colony knowledge (learned from failed colony encounters) ---
         this._colonyKnowledge = 0;
 
+        // --- Clear special state flags ---
+        this._inWrongPlace = false;
+        this._previousSectorNodes = null;
+        this._previousSector = null;
+        this.sectorNodes = [];
+
+        // --- Clear event tracking (so events can trigger again) ---
+        this._jaxonPhotoSeen = false;
+        this._jaxonRepairSeen = false;
+        this._arisPatientSeen = false;
+        this._arisGardenSeen = false;
+        this._vanceScarSeen = false;
+        this._vanceWatchSeen = false;
+        this._miraWonderSeen = false;
+        this._miraAuraSeen = false;
+        this._commanderDoubtSeen = false;
+
         this.emitUpdates();
     }
 
@@ -329,6 +346,8 @@ class GameState {
                 if (candidates.length > 0) {
                     const victim = candidates[Math.floor(Math.random() * candidates.length)];
                     victim.status = 'DEAD';
+                    victim._deathCause = 'starvation';
+                    victim._deathSector = this.currentSector;
                     this.addLog(`☠ DEATH: ${victim.name} has died of starvation.`);
                     window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: victim } }));
                     if (typeof BarkSystem !== 'undefined' && window.BarkSystem) {
@@ -395,6 +414,13 @@ class GameState {
         const [key, deck] = operational[Math.floor(Math.random() * operational.length)];
         deck.status = 'DAMAGED';
         this.addLog(`HULL BREACH: ${deck.label} has taken damage! Systems offline.`);
+
+        // Tutorial: first deck damage
+        if (!this._tutorialDeckSeen) {
+            this._tutorialDeckSeen = true;
+            this.addLog("A.U.R.A.: Hull breach detected. I recommend immediate repairs. Damaged systems impair ship efficiency.");
+        }
+
         this.emitUpdates(); // emitUpdates() calls checkLoseConditions()
         return key;
     }
@@ -440,10 +466,24 @@ class GameState {
     applyStressTraits() {
         this.crew.forEach(c => {
             if (c.status === 'DEAD') return;
+
+            // Commander stress is capped at 2 - they can be stressed but breakdown requires special events
+            // This prevents random stress accumulation from causing instant game over
+            if (c.tags && c.tags.includes('LEADER') && c.stress > 2) {
+                c.stress = 2;
+                this.addLog(`${c.name} steadies their nerves. Command requires composure.`);
+            }
+
             const stress = c.stress || 0;
 
             // Stress 2: Assign personality-based negative trait
             if (stress >= 2 && !c.trait) {
+                // Tutorial: first stress problem
+                if (!this._tutorialStressSeen) {
+                    this._tutorialStressSeen = true;
+                    this.addLog("A.U.R.A.: Commander, crew stress levels are concerning. Rest cycles or calming activities may help.");
+                }
+
                 switch (c.personality) {
                     case 'PESSIMIST':  // Jaxon
                         c.trait = 'HOARDER';
@@ -490,7 +530,19 @@ class GameState {
     triggerBreakdown(crewMember) {
         const c = crewMember;
 
-        // Commander breakdown = game over
+        // Confined crew can't have breakdowns - they're already isolated
+        if (c.tags && c.tags.includes('CONFINED')) {
+            this.addLog(`${c.name} has a breakdown in confinement. No one hears the screaming.`);
+            c.status = 'INJURED';
+            return;
+        }
+
+        // Sedated crew can't have breakdowns - they're unconscious
+        if (c.tags && c.tags.includes('SEDATED')) {
+            return;
+        }
+
+        // Commander breakdown = game over (only if not already confined)
         if (c.tags.includes('LEADER')) {
             this.gameOver = true;
             window.dispatchEvent(new CustomEvent('game-over', {
@@ -561,13 +613,139 @@ class App {
         this.navView = new NavView(this.state);
         this.orbitView = new OrbitView(this.state);
 
-        this.init();
+        // Modal queue to prevent stacking
+        this._modalQueue = [];
+        this._modalActive = false;
+
+        // Show start menu first
+        this.showStartMenu();
+    }
+
+    showStartMenu() {
+        // Pre-generate star positions ONCE to prevent visual jumps
+        const starData = Array(50).fill().map(() => ({
+            left: Math.random() * 100,
+            top: Math.random() * 100,
+            opacity: 0.3 + Math.random() * 0.7,
+            duration: 2 + Math.random() * 3
+        }));
+
+        // Start audio system (audio is ON by default now)
+        if (window.AudioSystem) window.AudioSystem.init();
+
+        // Check current audio state for display
+        const audioIsOn = window.AudioSystem ? !window.AudioSystem.muted : true;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'start-menu';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(135deg, #000510 0%, #0a1020 50%, #000510 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10000; font-family: 'Share Tech Mono', monospace;
+        `;
+
+        overlay.innerHTML = `
+            <!-- Stars background - ALWAYS visible, no animation delay -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none;">
+                ${starData.map(star => `
+                    <div style="position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%;
+                        left: ${star.left}%; top: ${star.top}%;
+                        opacity: ${star.opacity};
+                        animation: twinkle ${star.duration}s infinite;"></div>
+                `).join('')}
+            </div>
+            <div style="text-align: center; animation: fadeInGentle 1.5s ease-in;">
+
+                <!-- Title -->
+                <div style="position: relative;">
+                    <div style="font-size: 0.9em; color: #446688; letter-spacing: 8px; margin-bottom: 10px;">
+                        EXODUS PROGRAM // VESSEL 9
+                    </div>
+                    <div style="font-size: 4em; font-weight: bold; color: #ffffff; letter-spacing: 12px;
+                        text-shadow: 0 0 30px rgba(100, 150, 255, 0.5), 0 0 60px rgba(50, 100, 200, 0.3);">
+                        SILENT EXODUS
+                    </div>
+                    <div style="font-size: 1em; color: #668899; margin-top: 15px; letter-spacing: 4px;">
+                        THE LAST JOURNEY OF HUMANITY
+                    </div>
+                </div>
+
+                <!-- Start button -->
+                <button id="btn-start-game" style="
+                    margin-top: 60px; padding: 18px 60px;
+                    background: transparent; border: 2px solid #4488ff;
+                    color: #4488ff; font-size: 1.2em; font-family: inherit;
+                    cursor: pointer; letter-spacing: 4px;
+                    transition: all 0.3s; position: relative;
+                ">
+                    INITIALIZE EXODUS
+                </button>
+
+                <!-- Audio indicator -->
+                <div style="margin-top: 30px; font-size: 0.75em; color: #445566;">
+                    <span id="audio-status">♪ AUDIO: ${audioIsOn ? 'ON' : 'OFF'}</span>
+                    <button id="btn-toggle-audio" style="
+                        margin-left: 15px; padding: 5px 15px;
+                        background: transparent; border: 1px solid #334455;
+                        color: #556677; font-size: 0.9em; font-family: inherit;
+                        cursor: pointer;
+                    ">TOGGLE</button>
+                </div>
+
+            </div>
+            <!-- Credits - outside fadeIn, fixed at bottom -->
+            <div style="position: absolute; bottom: 30px; left: 0; right: 0; text-align: center;
+                font-size: 0.7em; color: #334455; letter-spacing: 2px;">
+                BUILT WITH AI ASSISTANCE // 2024
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Button hover effects
+        const startBtn = overlay.querySelector('#btn-start-game');
+        startBtn.onmouseenter = () => {
+            startBtn.style.background = 'rgba(68, 136, 255, 0.2)';
+            startBtn.style.borderColor = '#66aaff';
+            startBtn.style.color = '#88ccff';
+            startBtn.style.transform = 'scale(1.05)';
+        };
+        startBtn.onmouseleave = () => {
+            startBtn.style.background = 'transparent';
+            startBtn.style.borderColor = '#4488ff';
+            startBtn.style.color = '#4488ff';
+            startBtn.style.transform = 'scale(1)';
+        };
+
+        // Start game
+        startBtn.onclick = () => {
+            overlay.style.transition = 'opacity 1s';
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.remove();
+                this.init();
+            }, 1000);
+        };
+
+        // Audio toggle - sync with actual AudioSystem state
+        const audioBtn = overlay.querySelector('#btn-toggle-audio');
+        const audioStatus = overlay.querySelector('#audio-status');
+        audioBtn.onclick = () => {
+            if (window.AudioSystem) {
+                if (window.AudioSystem.muted) {
+                    window.AudioSystem.unmute();
+                    audioStatus.textContent = '♪ AUDIO: ON';
+                } else {
+                    window.AudioSystem.mute();
+                    audioStatus.textContent = '♪ AUDIO: OFF';
+                }
+            }
+        };
     }
 
     init() {
         console.log("Exodus-9 Systems Initializing...");
-
-        if (window.AudioSystem) window.AudioSystem.init();
 
         window.addEventListener('log-updated', (e) => this.handleLogUpdate(e));
 
@@ -612,6 +790,8 @@ class App {
         window.addEventListener('req-action-garden', () => this.handleLateGamePOI('GARDEN'));
         window.addEventListener('req-action-grave', () => this.handleLateGamePOI('GRAVE'));
         window.addEventListener('req-action-structure', () => this.handleStructureAction());
+        window.addEventListener('req-action-station', () => this.handleStationAction());
+        window.addEventListener('req-action-asteroid', () => this.handleAsteroidAction());
         window.addEventListener('aura-vent-warning', () => this.showAuraVentModal());
         window.addEventListener('req-break-orbit', () => {
             this.state.addLog("Breaking orbit. Systems disengaged.");
@@ -645,9 +825,76 @@ class App {
 
         this.state.init();
         this.state.sectorNodes = PlanetGenerator.generateSector(1);
-        this.state.addLog("Sector 1 Map Generated.");
         this.renderNav();
-        this.state.addLog("System Init Complete. Awaiting Navigation Input.");
+
+        // A.U.R.A.'s opening briefing (in-universe tutorial)
+        this.showOpeningBriefing();
+    }
+
+    showOpeningBriefing() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '3500';
+        modal.style.background = 'rgba(0, 5, 15, 0.98)';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 650px; border-color: #00ff88; background: linear-gradient(135deg, #0a0a15, #0a1510);">
+                <div class="modal-header" style="background: linear-gradient(90deg, #003322, #005544); color: #00ff88;">
+                    <span>/// A.U.R.A. SYSTEM BRIEFING ///</span>
+                </div>
+                <div style="padding: 20px;">
+                    <!-- A.U.R.A. Portrait -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                        <div style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #00ff88;
+                            background: #001a0a; display: flex; align-items: center; justify-content: center;
+                            font-size: 1.5em; color: #00ff88; flex-shrink: 0;">AI</div>
+                        <div>
+                            <div style="color: #00ff88; font-weight: bold; margin-bottom: 5px;">A.U.R.A.</div>
+                            <div style="color: #88ffaa; font-style: italic; font-size: 0.9em;">
+                                "Good morning, Commander. Cryo-sleep cycle complete. All vital signs nominal."
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Briefing content -->
+                    <div style="border-left: 2px solid #00ff88; padding-left: 15px; margin-bottom: 20px; color: #aaffcc; font-size: 0.9em; line-height: 1.7;">
+                        <p style="margin: 0 0 12px 0;">"I've maintained ship systems during your rest. Here is our status:"</p>
+                        <p style="margin: 0 0 8px 0; color: #66ffaa;">▸ <strong>Energy:</strong> 100 units. Required for warping between planets.</p>
+                        <p style="margin: 0 0 8px 0; color: #66ffaa;">▸ <strong>Rations:</strong> 20 cycles. Major actions consume supplies.</p>
+                        <p style="margin: 0 0 8px 0; color: #66ffaa;">▸ <strong>Crew:</strong> 5 souls aboard. Their wellbeing is my priority.</p>
+                        <p style="margin: 0 0 12px 0; color: #66ffaa;">▸ <strong>Mission:</strong> Find a habitable world. Establish humanity's new home.</p>
+                        <p style="margin: 0; color: #88ffcc;">"I recommend selecting a planet on the navigation map. I will provide analysis once we are in orbit."</p>
+                    </div>
+
+                    <!-- Continue button -->
+                    <div style="text-align: center;">
+                        <button id="btn-begin" style="
+                            padding: 12px 40px; background: transparent;
+                            border: 2px solid #00ff88; color: #00ff88;
+                            font-family: var(--font-mono); font-size: 1em;
+                            cursor: pointer; transition: all 0.3s;
+                        ">UNDERSTOOD</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const btn = modal.querySelector('#btn-begin');
+        btn.onmouseenter = () => {
+            btn.style.background = 'rgba(0, 255, 136, 0.2)';
+            btn.style.color = '#aaffcc';
+        };
+        btn.onmouseleave = () => {
+            btn.style.background = 'transparent';
+            btn.style.color = '#00ff88';
+        };
+        btn.onclick = () => {
+            modal.remove();
+            this.state.addLog("A.U.R.A.: Systems online. Awaiting your command, Commander.");
+            this.state.addLog("Select a planet to view details. Warp to enter orbit.");
+        };
     }
 
     handleWarp(planet) {
@@ -664,6 +911,14 @@ class App {
 
         if (this.state.consumeEnergy(cost)) {
             this.state.addLog(`Warping to ${planet.name}...`);
+
+            // Tutorial: first warp
+            if (!this.state._tutorialWarpSeen) {
+                this.state._tutorialWarpSeen = true;
+                setTimeout(() => {
+                    this.state.addLog("A.U.R.A.: Orbit achieved. Scanning systems ready. EVA teams on standby.");
+                }, 500);
+            }
 
             // A.U.R.A. commentary on warp initiation
             if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
@@ -801,9 +1056,546 @@ class App {
             }
 
             setTimeout(() => {
-                this.state.addLog(`Orbit established. Systems Green.`);
+                // Check if this is a station - use different message
+                if (planet.isStation || planet.type === 'STATION') {
+                    this.state.addLog(`Docking approach initiated. Station sensors detecting our arrival.`);
+                } else if (planet.isAsteroidField || planet.type === 'ASTEROID_FIELD') {
+                    this.state.addLog(`Entered debris field. Navigation systems active.`);
+                } else {
+                    this.state.addLog(`Orbit established. Systems Green.`);
+                }
                 this.renderOrbit();
+
+                // Check for distress signals after warp (small chance) - use queue to prevent stacking
+                if (typeof rollDistressSignal !== 'undefined') {
+                    const distress = rollDistressSignal(this.state, 'warp');
+                    if (distress) {
+                        setTimeout(() => {
+                            this.state.addLog("⚠ INCOMING TRANSMISSION: Old distress signal detected...");
+                            this.queueModal('distress', distress);
+                        }, 1500);
+                    }
+                }
+
+                // Check for crew personal events - queued to not overlap
+                setTimeout(() => this.checkForCrewEvent(), 2000);
             }, 1000);
+        }
+    }
+
+    /**
+     * Show station encounter modal when investigating a station
+     */
+    showStationEncounter(station) {
+        if (!station || station.stationInvestigated) {
+            this.state.addLog("Station already investigated.");
+            return;
+        }
+
+        const encounters = (typeof SPACE_STATION_ENCOUNTERS !== 'undefined') ? SPACE_STATION_ENCOUNTERS : [];
+        if (encounters.length === 0) {
+            this.state.addLog("ERROR: Station encounter data unavailable.");
+            return;
+        }
+
+        // Select by weight
+        const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = encounters[0];
+        for (const enc of encounters) {
+            roll -= enc.weight;
+            if (roll <= 0) { selected = enc; break; }
+        }
+
+        const stationName = station.name || 'Unknown Station';
+
+        // Build the modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2000';
+
+        // Build dialogue HTML
+        const dialogueHtml = selected.dialogue.map(d => {
+            const colors = {
+                'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+                'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+            };
+            const color = colors[d.speaker] || '#ffffff';
+            return `<div style="margin-bottom: 10px;">
+                <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                <span style="color:${color}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+            </div>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #00aaff; max-width: 600px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #001133, #003366); color: #00aaff;">
+                    /// STATION: ${selected.title.toUpperCase()} ///
+                </div>
+                <div style="padding: 20px;">
+                    <div style="font-size: 0.8em; color: #00aaff; margin-bottom: 10px;">
+                        LOCATION: ${stationName}
+                    </div>
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 15px; line-height: 1.6; font-style: italic; border-left: 2px solid #00aaff; padding-left: 12px;">
+                        ${selected.context(stationName)}
+                    </div>
+                    <div style="border-left: 2px solid #333; padding-left: 15px; margin-bottom: 20px;">
+                        ${dialogueHtml}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${selected.choices.map((choice, idx) => `
+                            <button class="station-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid #00aaff; background: rgba(0,30,60,0.8);
+                                color: #00ccff; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">${choice.desc}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects
+        modal.querySelectorAll('.station-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(0,60,120,0.8)'; btn.style.borderColor = '#00ddff'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(0,30,60,0.8)'; btn.style.borderColor = '#00aaff'; };
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                const choice = selected.choices[idx];
+                const result = choice.effect(this.state);
+                if (result) {
+                    this.state.addLog(`STATION: ${result}`);
+                }
+                // Already marked as investigated in handleStationAction
+                this.state.emitUpdates();
+                modal.remove();
+            };
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STATION INVESTIGATION — Abandoned space stations
+    // ═══════════════════════════════════════════════════════════════
+    handleStationAction() {
+        const station = this.state.currentSystem;
+        if (!station || !station.isStation) {
+            this.state.addLog("No station detected at this location.");
+            return;
+        }
+        if (station.stationInvestigated) {
+            this.state.addLog("Station already investigated.");
+            return;
+        }
+
+        this.state.addLog(`Initiating docking procedure with ${station.name}...`);
+        this.state.consumeRation();
+
+        // Mark as investigated immediately to prevent re-clicking
+        station.stationInvestigated = true;
+        this.orbitView.updateCommandDeck(station);
+
+        // Show the station encounter
+        this.showStationEncounter(station);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ASTEROID FIELD MINING — Resource extraction from debris fields
+    // ═══════════════════════════════════════════════════════════════
+    handleAsteroidAction() {
+        const field = this.state.currentSystem;
+        if (!field || !field.isAsteroidField) {
+            this.state.addLog("No asteroid field detected at this location.");
+            return;
+        }
+        if (field.asteroidMined) {
+            this.state.addLog("Asteroid field already mined.");
+            return;
+        }
+
+        this.state.addLog(`Entering ${field.name}. Mining systems online...`);
+        this.state.consumeRation();
+
+        // Mark as mined immediately to prevent re-clicking
+        field.asteroidMined = true;
+        this.orbitView.updateCommandDeck(field);
+
+        // Show the asteroid encounter
+        this.showAsteroidEncounter(field);
+    }
+
+    /**
+     * Show asteroid field encounter modal when mining
+     */
+    showAsteroidEncounter(field) {
+        if (!field || field.asteroidMined) {
+            this.state.addLog("Asteroid field already mined.");
+            return;
+        }
+
+        const encounters = (typeof ASTEROID_FIELD_ENCOUNTERS !== 'undefined') ? ASTEROID_FIELD_ENCOUNTERS : [];
+        if (encounters.length === 0) {
+            this.state.addLog("ERROR: Asteroid encounter data unavailable.");
+            return;
+        }
+
+        // Select by weight
+        const totalWeight = encounters.reduce((sum, e) => sum + e.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = encounters[0];
+        for (const enc of encounters) {
+            roll -= enc.weight;
+            if (roll <= 0) { selected = enc; break; }
+        }
+
+        const fieldName = field.name || 'Unknown Field';
+
+        // Build the modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2000';
+
+        // Build dialogue HTML
+        const dialogueHtml = selected.dialogue.map(d => {
+            const colors = {
+                'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+                'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+            };
+            const color = colors[d.speaker] || '#ffffff';
+            return `<div style="margin-bottom: 10px;">
+                <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                <span style="color:${color}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+            </div>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #cc8844; max-width: 600px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #1a0d00, #332200); color: #cc8844;">
+                    /// ${selected.title.toUpperCase()} ///
+                </div>
+                <div style="padding: 20px;">
+                    <div style="font-size: 0.8em; color: #cc8844; margin-bottom: 10px;">
+                        LOCATION: ${fieldName}
+                    </div>
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 15px; line-height: 1.6; font-style: italic; border-left: 2px solid #cc8844; padding-left: 12px;">
+                        ${selected.context(fieldName)}
+                    </div>
+                    <div style="border-left: 2px solid #333; padding-left: 15px; margin-bottom: 20px;">
+                        ${dialogueHtml}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${selected.choices.map((choice, idx) => `
+                            <button class="asteroid-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid #cc8844; background: rgba(50,30,10,0.8);
+                                color: #ffaa55; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">${choice.desc}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects
+        modal.querySelectorAll('.asteroid-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(100,60,20,0.8)'; btn.style.borderColor = '#ffaa55'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(50,30,10,0.8)'; btn.style.borderColor = '#cc8844'; };
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                const choice = selected.choices[idx];
+                const result = choice.effect(this.state);
+                if (result) {
+                    this.state.addLog(`MINING: ${result}`);
+                }
+                // Already marked as mined in handleAsteroidAction
+                this.state.emitUpdates();
+                modal.remove();
+            };
+        });
+    }
+
+    /**
+     * Show distress signal encounter modal
+     */
+    showDistressSignal(encounter) {
+        if (!encounter) return;
+
+        const signalAge = encounter.getSignalAge();
+
+        // Build the modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2000';
+
+        // Build dialogue HTML
+        const dialogueHtml = encounter.dialogue.map(d => {
+            const colors = {
+                'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+                'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'
+            };
+            const color = colors[d.speaker] || '#ffffff';
+            return `<div style="margin-bottom: 10px;">
+                <span style="color:${color}; font-weight: bold;">${d.speaker}:</span>
+                <span style="color:${color}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+            </div>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: #ff6666; max-width: 600px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #1a0000, #330000); color: #ff6666;">
+                    /// DISTRESS SIGNAL: ${encounter.title.toUpperCase()} ///
+                </div>
+                <div style="padding: 20px;">
+                    <div style="font-size: 0.8em; color: #ff6666; margin-bottom: 10px;">
+                        SIGNAL AGE: ${signalAge === 'UNKNOWN' ? 'UNKNOWN' : signalAge + ' YEARS'}
+                    </div>
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 15px; line-height: 1.6; font-style: italic; border-left: 2px solid #ff6666; padding-left: 12px;">
+                        ${encounter.context(signalAge)}
+                    </div>
+                    <div style="border-left: 2px solid #333; padding-left: 15px; margin-bottom: 20px;">
+                        ${dialogueHtml}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${encounter.choices.map((choice, idx) => `
+                            <button class="distress-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid #ff6666; background: rgba(50,10,10,0.8);
+                                color: #ff9999; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                <div style="font-size: 0.8em; margin-top: 4px; color: var(--color-text-dim);">${choice.desc}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects
+        modal.querySelectorAll('.distress-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(100,20,20,0.8)'; btn.style.borderColor = '#ff9999'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(50,10,10,0.8)'; btn.style.borderColor = '#ff6666'; };
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                const choice = encounter.choices[idx];
+                const result = choice.effect(this.state);
+                if (result) {
+                    this.state.addLog(`SIGNAL: ${result}`);
+                }
+                this.state.emitUpdates();
+                modal.remove();
+                this._modalActive = false;
+                this._processModalQueue();
+            };
+        });
+    }
+
+    /**
+     * Queue a modal to be shown (prevents stacking)
+     */
+    queueModal(type, data) {
+        this._modalQueue.push({ type, data });
+        this._processModalQueue();
+    }
+
+    /**
+     * Process the next modal in queue
+     */
+    _processModalQueue() {
+        if (this._modalActive || this._modalQueue.length === 0) return;
+
+        // Check if any modal is currently open
+        const existingModal = document.querySelector('.modal-overlay');
+        if (existingModal) {
+            // Wait and retry
+            setTimeout(() => this._processModalQueue(), 500);
+            return;
+        }
+
+        this._modalActive = true;
+        const next = this._modalQueue.shift();
+
+        switch (next.type) {
+            case 'distress':
+                this.showDistressSignal(next.data);
+                break;
+            case 'crew':
+                this.showCrewPersonalEvent(next.data);
+                break;
+            default:
+                this._modalActive = false;
+                this._processModalQueue();
+        }
+    }
+
+    /**
+     * Show crew personal event modal
+     */
+    showCrewPersonalEvent(event) {
+        if (!event || !event.targetCrew) return;
+
+        const crew = event.targetCrew;
+        const colors = {
+            'jaxon': '#f0a030', 'aris': '#40c8ff', 'vance': '#ff5050',
+            'mira': '#d070ff', 'commander': '#ffffff'
+        };
+        const color = colors[event.crewId] || '#ffffff';
+
+        // Build the modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '2000';
+
+        // Build dialogue HTML with portraits
+        const portraits = {
+            'Eng. Jaxon': 'M_2', 'Dr. Aris': 'F_3', 'Spc. Vance': 'M_4',
+            'Tech Mira': 'F_5', 'Commander': 'M_1', 'A.U.R.A.': null
+        };
+        const dialogueHtml = event.dialogue.map(d => {
+            const speakerColors = {
+                'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
+                'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88', 'Commander': '#ffffff'
+            };
+            const sColor = speakerColors[d.speaker] || '#ffffff';
+            const pId = portraits[d.speaker];
+            const portraitHtml = pId
+                ? `<img src="assets/crew/${pId}.png" style="width:28px;height:28px;border-radius:50%;border:1px solid ${sColor};object-fit:cover;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">`
+                : (d.speaker === 'A.U.R.A.' ? `<span style="display:inline-block;width:28px;height:28px;border-radius:50%;border:1px solid #00ff88;text-align:center;line-height:28px;font-size:12px;margin-right:6px;vertical-align:middle;background:#001a0a;">AI</span>` : '');
+            return `<div style="margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px;">
+                <div style="flex-shrink: 0; padding-top: 2px;">${portraitHtml}</div>
+                <div>
+                    <span style="color:${sColor}; font-weight: bold;">${d.speaker}:</span>
+                    <span style="color:${sColor}; opacity: 0.85; font-style: italic;"> "${d.text}"</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="border-color: ${color}; max-width: 600px;">
+                <div class="modal-header" style="background: linear-gradient(90deg, #0a0a15, #1a1a30); color: ${color};">
+                    /// ${event.title.toUpperCase()} ///
+                </div>
+                <div style="padding: 20px;">
+                    <div style="font-size: 0.9em; color: var(--color-text-dim); margin-bottom: 15px; line-height: 1.6; font-style: italic; border-left: 2px solid ${color}; padding-left: 12px;">
+                        ${event.context}
+                    </div>
+                    <div style="border-left: 2px solid #333; padding-left: 15px; margin-bottom: 20px;">
+                        ${dialogueHtml}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${event.choices.map((choice, idx) => {
+                            // Generate a hint about what the choice does
+                            const hintFromEffect = this._getCrewChoiceHint(choice);
+                            return `
+                            <button class="crew-event-choice" data-idx="${idx}" style="
+                                padding: 12px 15px; text-align: left;
+                                border: 1px solid ${color}; background: rgba(30,30,50,0.8);
+                                color: #cccccc; cursor: pointer; font-family: var(--font-mono);
+                                transition: all 0.2s;
+                            ">
+                                <div style="font-weight: bold;">${choice.text}</div>
+                                ${hintFromEffect ? `<div style="font-size: 0.8em; margin-top: 4px; color: ${color}; opacity: 0.7;">${hintFromEffect}</div>` : ''}
+                            </button>
+                        `}).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Hover effects and click handlers
+        modal.querySelectorAll('.crew-event-choice').forEach(btn => {
+            btn.onmouseenter = () => { btn.style.background = 'rgba(60,60,90,0.9)'; btn.style.borderColor = '#ffffff'; };
+            btn.onmouseleave = () => { btn.style.background = 'rgba(30,30,50,0.8)'; btn.style.borderColor = color; };
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                const choice = event.choices[idx];
+                const result = choice.effect(this.state, crew);
+                if (result) {
+                    this.state.addLog(`CREW: ${result}`);
+                }
+                this.state.emitUpdates();
+                modal.remove();
+                this._modalActive = false;
+                this._processModalQueue();
+            };
+        });
+    }
+
+    /**
+     * Generate hint text for crew event choice effects
+     * Prefers explicit desc if provided, otherwise parses the effect function
+     */
+    _getCrewChoiceHint(choice) {
+        if (!choice) return '';
+
+        // Use explicit description if provided
+        if (choice.desc) return choice.desc;
+
+        if (!choice.effect) return '';
+
+        const effectStr = choice.effect.toString();
+
+        // Look for common patterns in effect code
+        const hints = [];
+
+        // Stress changes
+        if (effectStr.includes('stress - 2') || effectStr.includes('stress -2')) hints.push('-2 Stress');
+        else if (effectStr.includes('stress - 1') || effectStr.includes('stress -1')) hints.push('-1 Stress');
+        else if (effectStr.includes('stress + 2') || effectStr.includes('stress +2')) hints.push('+2 Stress');
+        else if (effectStr.includes('stress + 1') || effectStr.includes('stress +1')) hints.push('+1 Stress');
+        if (effectStr.includes('forEach') && effectStr.includes('stress')) hints.push('Affects all crew');
+
+        // Healing
+        if (effectStr.includes("status = 'HEALTHY'")) hints.push('Heals injured');
+
+        // Deck repairs
+        if (effectStr.includes("status = 'OPERATIONAL'")) hints.push('Repairs deck');
+
+        // Energy changes
+        if (effectStr.includes('energy - 5') || effectStr.includes('energy -5')) hints.push('-5 Energy');
+        if (effectStr.includes('energy +') || effectStr.includes('energy = Math.min(100, state.energy +')) hints.push('+Energy');
+
+        // Salvage changes
+        if (effectStr.includes('salvage = Math.min') && effectStr.includes('salvage +')) hints.push('+Salvage');
+
+        // A.U.R.A. ethics
+        if (effectStr.includes('adjustEthics(1)')) hints.push('A.U.R.A. trust+');
+        if (effectStr.includes('adjustEthics(-1)')) hints.push('A.U.R.A. trust-');
+
+        // Colony knowledge
+        if (effectStr.includes('_colonyKnowledge')) hints.push('+Colony Knowledge');
+
+        // Special flags
+        if (effectStr.includes('_vanceResolve')) hints.push('Improves future EVAs');
+
+        return hints.length > 0 ? hints.join(', ') : '';
+    }
+
+    /**
+     * Check for and trigger crew personal events after actions
+     */
+    checkForCrewEvent() {
+        if (typeof checkCrewPersonalEvent === 'undefined') return;
+
+        const event = checkCrewPersonalEvent(this.state);
+        if (event) {
+            this.queueModal('crew', event);
         }
     }
 
@@ -1296,6 +2088,7 @@ class App {
 
         // Mark as investigated immediately to prevent re-clicking
         planet.colonyInvestigated = true;
+        this.orbitView.updateCommandDeck(planet);
 
         // Use narrative modal system if available for immersive experience
         if (window.NarrativeModal) {
@@ -1439,6 +2232,10 @@ class App {
         this.state.addLog(`Derelict signal locked: ${shipName}. Deploying investigation team...`);
         this.state.consumeRation();
 
+        // Mark as investigated immediately to prevent re-clicking
+        planet.derelictInvestigated = true;
+        this.orbitView.updateCommandDeck(planet);
+
         // Use narrative modal system
         if (window.NarrativeModal) {
             this.showNarrativeEncounter({
@@ -1448,8 +2245,7 @@ class App {
                 dialogue: selected.dialogue,
                 choices: selected.choices,
                 onChoiceMade: () => {
-                    planet.derelictInvestigated = true;
-                    this.orbitView.updateCommandDeck(planet);
+                    // Already marked as investigated above
                 }
             });
         }
@@ -1496,6 +2292,10 @@ class App {
 
         this.state.addLog(`ANOMALY CONTACT: ${selected.title}. Approach with caution...`);
 
+        // Mark as investigated immediately to prevent re-clicking
+        planet.anomalyInvestigated = true;
+        this.orbitView.updateCommandDeck(planet);
+
         // Use narrative modal system
         if (window.NarrativeModal) {
             this.showNarrativeEncounter({
@@ -1505,8 +2305,7 @@ class App {
                 dialogue: selected.dialogue,
                 choices: selected.choices,
                 onChoiceMade: () => {
-                    planet.anomalyInvestigated = true;
-                    this.orbitView.updateCommandDeck(planet);
+                    // Already marked as investigated above
                 }
             });
         }
@@ -1647,6 +2446,10 @@ You are home.`
 
         this.state.addLog(`Approaching ${poi.name}...`);
 
+        // Mark as investigated immediately to prevent re-clicking
+        planet[investigatedKey] = true;
+        this.orbitView.updateCommandDeck(planet);
+
         // Show the POI encounter using narrative modal
         this.showNarrativeEncounter({
             title: poi.title,
@@ -1655,8 +2458,7 @@ You are home.`
             dialogue: poi.dialogue,
             choices: poi.choices,
             onChoiceMade: () => {
-                planet[investigatedKey] = true;
-                this.orbitView.updateCommandDeck(planet);
+                // Already marked as investigated above
             }
         });
     }
@@ -1879,13 +2681,36 @@ You are home.`
         };
         newGameBtn.onclick = () => {
             modal.remove();
-            // Reset the game
+            // Reset the game completely
             this.state.init();
+
+            // Clear all WRONG_PLACE and other special state flags
+            this.state._inWrongPlace = false;
+            this.state._previousSectorNodes = null;
+            this.state._previousSector = null;
+            this.state._encounteredExodus = [];
+            this.state._encounteredShipNames = [];
+
+            // Clear all tutorial flags so new players see them again
+            Object.keys(this.state).forEach(key => {
+                if (key.startsWith('_tutorial')) {
+                    delete this.state[key];
+                }
+            });
+
+            // Regenerate sector 1 fresh
+            this.state.sectorNodes = PlanetGenerator.generateSector(1);
+
             this.state.addLog("/// NEW EXODUS INITIALIZED ///");
             this.state.addLog("Humanity's hope rests with you once more.");
+            this.state.addLog("A.U.R.A.: New sector charted. Select a destination, Commander.");
+
+            // Clear current system so we're not in orbit
+            this.state.currentSystem = null;
+            this.state.lastVisitedSystem = null;
 
             // Return to navigation view
-            this.switchToNavView();
+            this.renderNav();
         };
     }
 
@@ -2332,6 +3157,17 @@ You are home.`
 
             this.orbitView.updateCommandDeck(this.state.currentSystem);
             this.renderOrbit();
+
+            // Check for distress signals after scan (small chance) - use queue
+            if (typeof rollDistressSignal !== 'undefined') {
+                const distress = rollDistressSignal(this.state, 'scan');
+                if (distress) {
+                    setTimeout(() => {
+                        this.state.addLog("⚠ INCOMING TRANSMISSION: Old distress signal detected...");
+                        this.queueModal('distress', distress);
+                    }, 1000);
+                }
+            }
         }
     }
 
@@ -2600,6 +3436,12 @@ You are home.`
             // Log the EVA team
             this.state.addLog(`EVA team deployed: ${evaTeam[0].name} and ${evaTeam[1].name}.`);
 
+            // Tutorial: first EVA
+            if (!this.state._tutorialEvaSeen) {
+                this.state._tutorialEvaSeen = true;
+                this.state.addLog("A.U.R.A.: EVA team deployed. Surface conditions will determine risk. I will monitor their vitals.");
+            }
+
             // A.U.R.A. commentary on EVA
             if (typeof AuraSystem !== 'undefined' && window.AuraSystem) {
                 window.AuraSystem.tryComment('EVA_DEPLOY', this.state);
@@ -2780,6 +3622,31 @@ You are home.`
         const roll = Math.random() * 100;
         let logMsg = "";
 
+        // === PLANET-TYPE AWARE HAZARD DESCRIPTIONS ===
+        const hazardByType = {
+            'VOLCANIC': ['lava surge', 'pyroclastic blast', 'magma eruption', 'thermal vent'],
+            'ICE_WORLD': ['crevasse collapse', 'flash freeze', 'ice shelf break', 'hypothermia'],
+            'TOXIC': ['chemical burn', 'atmospheric leak', 'acid exposure', 'contamination'],
+            'DESERT': ['sandstorm', 'heat stroke', 'dust suffocation', 'quicksand'],
+            'GAS_GIANT': ['pressure shock', 'atmospheric turbulence', 'lightning strike', 'gravity fluctuation'],
+            'VITAL': ['unknown pathogen', 'hostile flora', 'allergic reaction', 'spore exposure'],
+            'ROCKY': ['rockslide', 'cave-in', 'seismic shift', 'unstable terrain'],
+            'OCEANIC': ['riptide', 'pressure breach', 'creature attack', 'storm surge'],
+            'GRAVEYARD': ['hull collapse', 'decompression', 'debris impact', 'structural failure'],
+            'CRYSTALLINE': ['resonance shatter', 'crystal impalement', 'harmonic injury', 'fracture cascade'],
+            'SHATTERED': ['debris collision', 'micro-gravity accident', 'impact trauma', 'void exposure'],
+            'BIO_MASS': ['organism attack', 'absorption attempt', 'toxic secretion', 'parasitic infection'],
+            'MECHA': ['security drone', 'automated defense', 'power surge', 'mechanical trap'],
+            'ROGUE': ['extreme cold exposure', 'equipment malfunction', 'isolation psychosis', 'radiation burst'],
+            'TERRAFORMED': ['terraformer malfunction', 'environmental collapse', 'system failure', 'containment breach'],
+            '_DEFAULT': ['accident', 'equipment failure', 'environmental hazard', 'unforeseen complication']
+        };
+
+        const getHazard = () => {
+            const hazards = hazardByType[planet?.type] || hazardByType['_DEFAULT'];
+            return hazards[Math.floor(Math.random() * hazards.length)];
+        };
+
         // === PREDATORY PLANET SPECIAL HANDLING ===
         // Predatory ecosystems are EXTREMELY dangerous - additional attack chance
         const isPredatory = planet && planet.tags && planet.tags.includes('PREDATORY');
@@ -2803,14 +3670,27 @@ You are home.`
             // Predatory attacks are more likely to be fatal
             const deathThreshold = predatoryAttack ? 30 : 10;
             const deathFromHighRisk = totalRisk > 40;
+            const hazardDesc = getHazard();
 
             if (severity < deathThreshold || deathFromHighRisk) {
                 targetCrew.status = 'DEAD';
+                targetCrew._deathSector = this.state.currentSector;
                 if (predatoryAttack) {
+                    targetCrew._deathCause = 'predatory organisms';
+                    targetCrew._deathPlanet = planet?.name || planet?.type || 'unknown world';
                     logMsg = `CATASTROPHE: ${targetCrew.name} killed by predatory organisms. The attack was coordinated. `;
                     this.state.addLog(`The creatures didn't just kill — they hunted. ${targetCrew.name} never had a chance.`);
                 } else {
-                    logMsg = `CATASTROPHE: ${targetCrew.name} KIA during operation. `;
+                    // Track death cause for ending screen
+                    targetCrew._deathCause = hazardDesc;
+                    targetCrew._deathPlanet = planet?.name || planet?.type || 'unknown world';
+                    // Planet-type specific death messages
+                    const deathMsgs = [
+                        `CATASTROPHE: ${targetCrew.name} lost to ${hazardDesc}. No recovery possible.`,
+                        `FATAL: ${targetCrew.name} killed by ${hazardDesc}. Body unrecoverable.`,
+                        `KIA: ${hazardDesc} claimed ${targetCrew.name}. Mission abort.`
+                    ];
+                    logMsg = deathMsgs[Math.floor(Math.random() * deathMsgs.length)] + ' ';
                 }
                 window.dispatchEvent(new CustomEvent('crew-death', { detail: { crew: targetCrew } }));
             } else {
@@ -2819,7 +3699,13 @@ You are home.`
                     logMsg = `CRITICAL: ${targetCrew.name} mauled by predatory organisms. Emergency extraction! `;
                     this.state.addLog(`Dr. Aris: "The wounds are severe. Whatever attacked them knew where to bite."`);
                 } else {
-                    logMsg = `INCIDENT: ${targetCrew.name} sustained heavy injuries. `;
+                    // Planet-type specific injury messages
+                    const injuryMsgs = [
+                        `INCIDENT: ${targetCrew.name} injured by ${hazardDesc}. Medical attention required.`,
+                        `CRITICAL: ${hazardDesc} wounded ${targetCrew.name}. Emergency extraction!`,
+                        `WARNING: ${targetCrew.name} sustained ${hazardDesc} injuries. Aborting EVA.`
+                    ];
+                    logMsg = injuryMsgs[Math.floor(Math.random() * injuryMsgs.length)] + ' ';
                 }
                 window.dispatchEvent(new CustomEvent('crew-injury', { detail: { crew: targetCrew } }));
             }
@@ -2845,7 +3731,28 @@ You are home.`
                 window.AuraSystem.tryComment('CREW_DEATH', this.state, true);
             }
         } else {
-            logMsg = "Operations Successful. Team returned safely. ";
+            // Planet-type specific success messages for variety
+            const successByType = {
+                'VOLCANIC': ['Extracted samples despite extreme heat.', 'Team navigated lava fields safely.', 'Heat shields held. Mission complete.'],
+                'ICE_WORLD': ['Cryo-samples secured. Warming up.', 'Team returned from the cold.', 'Thermal suits performed well.'],
+                'TOXIC': ['Decontamination complete. All clear.', 'Filters held. No exposure.', 'Hazmat protocols successful.'],
+                'DESERT': ['Sand-blasted but intact.', 'Team hydrated and returning.', 'Survived the wastes.'],
+                'GAS_GIANT': ['Atmospheric dive successful.', 'Pressure held. Samples acquired.', 'Returned from the depths.'],
+                'VITAL': ['Specimens secured safely.', 'Life signs stable. Beautiful world.', 'Biological samples obtained.'],
+                'ROCKY': ['Geological survey complete.', 'Core samples extracted.', 'Terrain navigated successfully.'],
+                'OCEANIC': ['Submersible mission success.', 'Water samples secured.', 'Aquatic EVA complete.'],
+                'GRAVEYARD': ['Salvage extracted from wreckage.', 'Ship graveyard yielded resources.', 'Honored the dead. Took what we needed.'],
+                'CRYSTALLINE': ['Crystal formations documented.', 'Resonance samples secured.', 'Harmonic data recorded.'],
+                'SHATTERED': ['Debris field navigated.', 'Fragment samples collected.', 'Micro-gravity EVA success.'],
+                'BIO_MASS': ['Organic samples contained.', 'Avoided the larger masses.', 'Biomatter secured for study.'],
+                'MECHA': ['Avoided active defenses.', 'Tech salvage acquired.', 'Machine world yielded components.'],
+                'ROGUE': ['Survived the cold darkness.', 'Isolation protocols held.', 'Returned from the void.'],
+                'TERRAFORMED': ['Former colony yielded resources.', 'Reclaimed what was left behind.', 'Terraformer data secured.'],
+                '_DEFAULT': ['Operations complete. Team safe.', 'EVA successful. Returning.', 'Mission accomplished.']
+            };
+
+            const successMsgs = successByType[planet?.type] || successByType['_DEFAULT'];
+            logMsg = successMsgs[Math.floor(Math.random() * successMsgs.length)] + ' ';
 
             // A.U.R.A. reacts to success (occasionally)
             if (Math.random() < 0.4 && typeof AuraSystem !== 'undefined' && window.AuraSystem) {
@@ -3515,10 +4422,11 @@ You are home.`
         const techLevel = this.state.upgrades?.length || 0;
         const colonyKnowledge = this.state._colonyKnowledge || 0;
 
-        // Rating calculation
+        // Rating calculation - knowledge matters more!
+        // Survivors are crucial, but knowledge from exploring determines long-term survival
         let rating = 'C';
         let ratingColor = '#ffaa00';
-        const score = (survivors.length * 20) + (techLevel * 10) + (colonyKnowledge * 5) - (avgStress * 10);
+        const score = (survivors.length * 15) + (colonyKnowledge * 8) + (techLevel * 5) - (avgStress * 10);
         if (outcome.success) {
             if (score >= 120) { rating = 'S'; ratingColor = '#ffcc00'; }
             else if (score >= 90) { rating = 'A'; ratingColor = '#00ff00'; }
@@ -3549,8 +4457,8 @@ You are home.`
                         <div style="font-size: 1.8em; font-weight: bold; color: ${avgStress <= 1 ? '#88ff88' : avgStress <= 2 ? '#ffaa00' : '#ff4444'};">${avgStress}</div>
                     </div>
                     <div style="background: #000; padding: 12px; text-align: center;">
-                        <div style="font-size: 0.7em; color: ${color}88; margin-bottom: 4px;">TECH LEVEL</div>
-                        <div style="font-size: 1.8em; font-weight: bold; color: #00ccff;">${techLevel}</div>
+                        <div style="font-size: 0.7em; color: ${color}88; margin-bottom: 4px;">KNOWLEDGE</div>
+                        <div style="font-size: 1.8em; font-weight: bold; color: ${colonyKnowledge >= 5 ? '#00ffcc' : colonyKnowledge >= 2 ? '#88ccff' : '#cccccc'};">${colonyKnowledge}</div>
                     </div>
                     <div style="background: #000; padding: 12px; text-align: center;">
                         <div style="font-size: 0.7em; color: ${color}88; margin-bottom: 4px;">COLONY RATING</div>
@@ -3614,6 +4522,7 @@ You are home.`
                 <!-- Narrative Text -->
                 <div style="padding: 25px; font-size: 1em; line-height: 1.8; max-height: 280px; overflow-y: auto; background: #0a0a0a;">
                     ${outcome.text}
+                    ${outcome.success ? EndingSystem.generateEpilogue(planet, this.state, outcome.title) : ''}
                 </div>
 
                 <!-- Survivor List -->
@@ -4060,8 +4969,13 @@ You are home.`
         modal.className = 'modal-overlay';
         modal.style.zIndex = '2800';
 
+        // Get dialogue - can be array or function that returns array
+        const dialogue = typeof event.dialogue === 'function'
+            ? event.dialogue(this.state)
+            : event.dialogue;
+
         // Build dialogue HTML
-        const dialogueHtml = event.dialogue.map(d => {
+        const dialogueHtml = dialogue.map(d => {
             const colors = {
                 'Eng. Jaxon': '#f0a030', 'Dr. Aris': '#40c8ff', 'Spc. Vance': '#ff5050',
                 'Tech Mira': '#d070ff', 'A.U.R.A.': '#00ff88'

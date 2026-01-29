@@ -1398,6 +1398,256 @@ body {
     100% { transform: rotate(360deg); }
 }
 
+/* 32. THE WRONG PLACE: Lovecraftian hell dimension */
+.planet-visual.type-WRONG_PLACE {
+    background:
+        /* Impossible geometry - overlapping gradients that shouldn't work */
+        repeating-conic-gradient(from 45deg at 30% 70%,
+            rgba(255, 0, 0, 0.3) 0deg,
+            transparent 15deg,
+            rgba(0, 0, 0, 0.8) 30deg,
+            transparent 45deg),
+        repeating-conic-gradient(from -45deg at 70% 30%,
+            rgba(100, 0, 50, 0.4) 0deg,
+            transparent 20deg,
+            rgba(50, 0, 100, 0.3) 40deg),
+        /* Bleeding red/black core */
+        radial-gradient(ellipse at 40% 60%, #440000 0%, #220000 30%, #000000 70%),
+        radial-gradient(ellipse at 60% 40%, #330011 0%, #110022 40%, #000000 80%);
+    border: 2px solid #ff0000;
+    box-shadow:
+        0 0 30px rgba(255, 0, 0, 0.6),
+        0 0 60px rgba(100, 0, 50, 0.4),
+        0 0 100px rgba(0, 0, 0, 0.8),
+        inset 0 0 30px rgba(255, 0, 0, 0.3);
+    animation: wrong-place-pulse 2s ease-in-out infinite, wrong-place-glitch 0.1s infinite;
+    filter: contrast(1.2) saturate(1.5);
+}
+
+.planet-visual.type-WRONG_PLACE::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    right: -50%;
+    bottom: -50%;
+    background:
+        /* Static noise effect */
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            rgba(255, 0, 0, 0.03) 1px,
+            transparent 2px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            transparent 0px,
+            rgba(255, 255, 255, 0.02) 1px,
+            transparent 2px
+        );
+    animation: wrong-place-static 0.05s infinite;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.planet-visual.type-WRONG_PLACE::after {
+    content: '?';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2em;
+    color: rgba(255, 0, 0, 0.4);
+    text-shadow:
+        0 0 10px rgba(255, 0, 0, 0.8),
+        2px 2px 0 rgba(0, 255, 255, 0.3),
+        -2px -2px 0 rgba(255, 0, 255, 0.3);
+    animation: wrong-place-symbol 3s ease-in-out infinite;
+    font-family: serif;
+}
+
+@keyframes wrong-place-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 30px rgba(255, 0, 0, 0.6),
+            0 0 60px rgba(100, 0, 50, 0.4),
+            0 0 100px rgba(0, 0, 0, 0.8),
+            inset 0 0 30px rgba(255, 0, 0, 0.3);
+        transform: scale(1);
+    }
+    25% {
+        box-shadow:
+            0 0 50px rgba(255, 0, 0, 0.8),
+            0 0 80px rgba(100, 0, 50, 0.6),
+            0 0 120px rgba(0, 0, 0, 0.9),
+            inset 0 0 40px rgba(255, 0, 0, 0.5);
+        transform: scale(1.02);
+    }
+    75% {
+        box-shadow:
+            0 0 20px rgba(255, 0, 0, 0.4),
+            0 0 40px rgba(100, 0, 50, 0.2),
+            0 0 80px rgba(0, 0, 0, 0.6),
+            inset 0 0 20px rgba(255, 0, 0, 0.2);
+        transform: scale(0.98);
+    }
+}
+
+@keyframes wrong-place-glitch {
+    0%, 90%, 100% {
+        clip-path: inset(0 0 0 0);
+        transform: translate(0, 0) scale(1);
+    }
+    92% {
+        clip-path: inset(20% 0 30% 0);
+        transform: translate(-2px, 0) scale(1.01);
+    }
+    94% {
+        clip-path: inset(50% 0 10% 0);
+        transform: translate(2px, 1px) scale(0.99);
+    }
+    96% {
+        clip-path: inset(10% 0 60% 0);
+        transform: translate(0, -1px) scale(1);
+    }
+}
+
+@keyframes wrong-place-static {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+}
+
+@keyframes wrong-place-symbol {
+    0%, 100% {
+        opacity: 0.4;
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    33% {
+        opacity: 0.7;
+        transform: translate(-50%, -50%) rotate(5deg);
+    }
+    66% {
+        opacity: 0.2;
+        transform: translate(-50%, -50%) rotate(-5deg);
+    }
+}
+
+/* 33. STATION: Orbital structure (not a planet) */
+.planet-visual.type-STATION {
+    background:
+        /* Central hub */
+        radial-gradient(circle at 50% 50%, #666666 0%, #444444 30%, #222222 60%),
+        /* Metal surface */
+        linear-gradient(45deg, #555 0%, #333 50%, #555 100%);
+    border: 2px solid #888888;
+    box-shadow:
+        0 0 20px rgba(100, 150, 200, 0.4),
+        inset 0 0 15px rgba(0, 0, 0, 0.5);
+    /* Make it look more angular/structural */
+    border-radius: 15%;
+}
+
+.planet-visual.type-STATION::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -40%;
+    width: 180%;
+    height: 8px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        #666 10%,
+        #888 45%,
+        #888 55%,
+        #666 90%,
+        transparent 100%);
+    transform: translateY(-50%);
+    box-shadow: 0 0 10px rgba(100, 150, 200, 0.3);
+}
+
+.planet-visual.type-STATION::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 50%;
+    width: 8px;
+    height: 180%;
+    background: linear-gradient(180deg,
+        transparent 0%,
+        #666 10%,
+        #888 45%,
+        #888 55%,
+        #666 90%,
+        transparent 100%);
+    transform: translateX(-50%);
+    box-shadow: 0 0 10px rgba(100, 150, 200, 0.3);
+}
+
+/* Blinking light effect */
+@keyframes station-blink {
+    0%, 90%, 100% { opacity: 0.3; }
+    95% { opacity: 1; }
+}
+
+/* 33. ASTEROID FIELD: Scattered rock debris */
+.planet-visual.type-ASTEROID_FIELD {
+    background:
+        /* Multiple rock fragments */
+        radial-gradient(ellipse 30% 25% at 25% 30%, #8B7355 0%, #5C4033 50%, transparent 60%),
+        radial-gradient(ellipse 25% 30% at 70% 25%, #6B5344 0%, #4A3728 50%, transparent 60%),
+        radial-gradient(ellipse 35% 25% at 50% 65%, #7D6B5C 0%, #5A4A3A 50%, transparent 60%),
+        radial-gradient(ellipse 20% 20% at 80% 70%, #695A4A 0%, #483C2E 50%, transparent 60%),
+        radial-gradient(ellipse 15% 18% at 15% 75%, #756555 0%, #524438 50%, transparent 60%),
+        radial-gradient(ellipse 18% 15% at 40% 40%, #8A7A6A 0%, #5F5040 50%, transparent 60%),
+        /* Background space */
+        radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a15 100%);
+    border: none;
+    box-shadow:
+        0 0 30px rgba(139, 115, 85, 0.3),
+        inset 0 0 20px rgba(0, 0, 0, 0.8);
+    border-radius: 50%;
+    animation: asteroid-drift 8s ease-in-out infinite;
+}
+
+.planet-visual.type-ASTEROID_FIELD::before {
+    content: '';
+    position: absolute;
+    top: 10%;
+    left: 5%;
+    width: 15px;
+    height: 12px;
+    background: radial-gradient(ellipse, #9B8B7B 0%, #6B5B4B 60%, transparent 70%);
+    border-radius: 40%;
+    animation: rock-float-1 4s ease-in-out infinite;
+}
+
+.planet-visual.type-ASTEROID_FIELD::after {
+    content: '';
+    position: absolute;
+    bottom: 15%;
+    right: 10%;
+    width: 12px;
+    height: 10px;
+    background: radial-gradient(ellipse, #8B7B6B 0%, #5B4B3B 60%, transparent 70%);
+    border-radius: 40%;
+    animation: rock-float-2 5s ease-in-out infinite;
+}
+
+@keyframes asteroid-drift {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(2deg); }
+}
+
+@keyframes rock-float-1 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(3px, -5px); }
+}
+
+@keyframes rock-float-2 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-4px, 3px); }
+}
+
 /* --- ANIMATIONS --- */
 @keyframes planet-float {
 
@@ -1484,4 +1734,16 @@ body {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* Twinkling stars animation for start menu */
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+/* Gentle fade for start menu - no movement, just opacity */
+@keyframes fadeInGentle {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }

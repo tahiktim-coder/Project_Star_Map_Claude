@@ -18,28 +18,30 @@ const FAILED_COLONY_ENCOUNTERS = [
         choices: [
             {
                 text: "Read the colony logs",
-                desc: "+10 Salvage (data drives). Colony knowledge gained.",
+                desc: "+8-15 Salvage (data drives). Colony knowledge gained.",
                 effect: function(state) {
-                    state.salvage = Math.min(state.maxSalvage, state.salvage + 10);
+                    const salvage = Math.floor(Math.random() * 8) + 8; // 8-15
+                    state.salvage = Math.min(state.maxSalvage, state.salvage + salvage);
                     state._colonyKnowledge = (state._colonyKnowledge || 0) + 1;
                     state.addLog('COLONY LOG: "Day 1: We landed! The children are playing in real grass for the first time. Elena cried."');
                     state.addLog('COLONY LOG: "Day 342: The water table is dropping. Joran says the soil chemistry is changing. Something in the root system is pulling minerals we need."');
                     state.addLog('COLONY LOG: "Day 891: We can\'t grow wheat anymore. The local flora is outcompeting everything. We\'re rationing. Again."');
                     state.addLog('COLONY LOG: "Day 1,204: Last entry. Moving to higher ground. The dome seals failed. If anyone finds this — the soil here is alive. It doesn\'t want us."');
                     if (typeof AuraSystem !== 'undefined') AuraSystem.adjustEthics(1, 'Read colony logs — preserved their story');
-                    return "Colony records recovered. Data drives salvaged. +10 Salvage. Colony knowledge improved.";
+                    return `Colony records recovered. Data drives salvaged. +${salvage} Salvage. Colony knowledge improved.`;
                 }
             },
             {
                 text: "Salvage the settlement",
-                desc: "+35 Salvage, +1 Food Pack. Strip what they left.",
+                desc: "+25-45 Salvage, +1 Food Pack. Strip what they left.",
                 effect: function(state) {
-                    state.salvage = Math.min(state.maxSalvage, state.salvage + 35);
+                    const salvage = Math.floor(Math.random() * 21) + 25; // 25-45
+                    state.salvage = Math.min(state.maxSalvage, state.salvage + salvage);
                     if (typeof ITEMS !== 'undefined' && ITEMS.FOOD_PACK) {
                         state.cargo.push({ ...ITEMS.FOOD_PACK, acquiredAt: 'Colony Site' });
                     }
                     state.addLog('Eng. Jaxon: "Good materials here. Prefab panels, sealed wiring, intact solar cells. They built well."');
-                    return "Settlement stripped. +35 Salvage, +Food Pack. Their homes are now our hull plating.";
+                    return `Settlement stripped. +${salvage} Salvage, +Food Pack. Their homes are now our hull plating.`;
                 }
             },
             {
@@ -89,7 +91,7 @@ const FAILED_COLONY_ENCOUNTERS = [
         dialogue: [
             { speaker: 'Dr. Aris', text: "Those are grave markers. Hundreds of them. Organized by... date, I think." },
             { speaker: 'Eng. Jaxon', text: "The buildings look intact. Whatever killed them wasn't structural." },
-            { speaker: 'A.U.R.A.', text: "Atmospheric analysis suggests a pathogenic event. Biological contamination timeline: approximately 6-8 months post-landing." }
+            { speaker: 'A.U.R.A.', text: "Atmospheric analysis suggests a pathogenic event. Biological contamination timeline: 6 to 8 months after landing." }
         ],
         choices: [
             {

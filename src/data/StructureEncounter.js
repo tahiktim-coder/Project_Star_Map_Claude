@@ -128,24 +128,28 @@ THE STRUCTURE seems to understand. Perhaps even approve. It provides data willin
 
 You store it all. Every byte. Every revelation.
 
-Then you turn back. You have what you need. You will find a colony. You will build. And one day, when humanity is ready, they will return here with the knowledge to truly understand what waits beyond the threshold.
+There is no going back. There was never going back. But THE STRUCTURE's data shows you something: a habitable world, nearby, that you never would have found alone.
+
+You settle there. You build. You transmit your findings to anyone who might be listening.
+
+And one day, when humanity sends another ship, they will come with the knowledge to truly understand what waits beyond the threshold.
 
 You are not the ones to cross it.
 
 But because of you, someone will.
 
-The Exodus-9 turns away from THE STRUCTURE. Behind you, it waits.
+THE STRUCTURE waits behind you as you descend to your new home.
 
 Patient. Eternal.
 
-It will be there when they return.`
+It will be there when they're ready.`
                 };
             }
         },
         {
-            id: 'RETURN',
-            text: "Return to the colonies",
-            desc: "You've come far enough. Time to go back and build.",
+            id: 'SETTLE_NEARBY',
+            text: "Find a world and settle",
+            desc: "You've come far enough. Time to stop and build.",
             requirement: null,
             effect: (state) => {
                 const livingCrew = state.crew.filter(c => c.status !== 'DEAD').length;
@@ -155,21 +159,19 @@ It will be there when they return.`
                         ending: 'NEW_EARTH',
                         title: 'NEW EARTH',
                         text: `
-You came to the edge of everything. And you chose to go back.
+You came to the edge of everything. And you chose not to cross.
 
 Not out of fear. Out of wisdom.
 
 THE STRUCTURE will wait. It has waited longer than humanity has existed. It will wait longer still.
 
-But right now, there are colonies that need help. Settlements that need supplies. Children who need stories of hope.
+There is no going back to Earth. There never was. But there are worlds here, in the shadow of THE STRUCTURE. Worlds that feel almost prepared for you.
 
-You turn the Exodus-9 around. The journey back feels shorter. Lighter.
+You choose one. You land. You build.
 
-You find a world. One of the Eden planets you passed. Perfect. Waiting.
+The colony you found becomes a legend. The settlement at the edge of everything. The people who looked into infinity and chose to stay human.
 
-The colony you build becomes a legend. The founders who went to the edge of the universe and chose to return. Who chose humanity over transcendence.
-
-Generations later, someone will make the journey again. They will reach THE STRUCTURE and remember the ship that came before.
+Generations later, your descendants will make the journey to THE STRUCTURE. They will remember the ship that brought them here.
 
 But that is their story.
 
@@ -179,20 +181,24 @@ And it is a good one.`
                     };
                 } else {
                     return {
-                        ending: 'LONE_RETURN',
-                        title: 'THE LONG WAY HOME',
+                        ending: 'QUIET_END',
+                        title: 'THE QUIET END',
                         text: `
 You came to the edge. And you are too tired to cross.
 
 Not a failure. Never a failure. Just... enough.
 
-The Exodus-9 turns back. The journey home is lonely. So many empty seats. So many ghosts.
+There is no going back. But there is a small world nearby. Quiet. Empty. Survivable.
 
-But you find others. Scattered colonies. Desperate survivors. People who need what you have: a working ship, hard-won experience, and the knowledge that there IS something out there. Something waiting.
+You land the Exodus-9 for the last time. You step outside. The air is thin but breathable.
+
+So few of you left. So many ghosts.
+
+But you build what you can. You plant what you have. You live out your days in sight of THE STRUCTURE, its light visible in the night sky.
 
 You never speak of what you saw. The words don't exist.
 
-But when the nightmares come, and they always come, you remember the light of THE STRUCTURE. And somehow, that helps.
+But when the nightmares come, and they always come, you look up at that impossible light. And somehow, that helps.
 
 You lived. That's enough.
 

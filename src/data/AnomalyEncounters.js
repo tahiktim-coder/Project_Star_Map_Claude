@@ -506,6 +506,9 @@ const ANOMALY_ENCOUNTERS = [
                         const victim = state.crew.find(c => c.status !== 'DEAD' && !c.tags.includes('LEADER'));
                         if (victim) {
                             victim.status = 'DEAD';
+                            victim._deathCause = 'The Door';
+                            victim._deathSector = state.currentSector;
+                            victim._deathPlanet = 'the Structure';
                             state.addLog("THE DOOR OPENED.");
                             state.addLog(`${victim.name} walked toward it. Willingly. Smiling. They said: "I understand now."`);
                             state.addLog("The Door closed. They're gone. But the Door left something behind.");
